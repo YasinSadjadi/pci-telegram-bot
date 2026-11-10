@@ -1,0 +1,7 @@
+<Solution>
+    <Project Path="VocabularyBot.Application/VocabularyBot.Application.csproj"/>
+    <Project Path="VocabularyBot.Bot/VocabularyBot.Bot.csproj"/>
+    <Project Path="VocabularyBot.Domain/VocabularyBot.Domain.csproj"/>
+    <Project Path="VocabularyBot.Infrastructure/VocabularyBot.Infrastructure.csproj"/>
+    <Project Path="VocabularyBot.Tests/VocabularyBot.Tests.csproj"/>
+</Solution>
