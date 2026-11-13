@@ -1,17 +1,29 @@
-using System.Text.RegularExpressions;
+using System.ComponentModel.DataAnnotations;
+using System.Reflection;
 using VocabularyBot.Domain.Words;
 namespace VocabularyBot.Application.Words;
 public static class TranslationInput
 {
-    public static string NormalizeLanguage(string language) => WordNormalizer.Normalize(language.Replace('ي', 'ی').Replace('ك', 'ک'));
-
-    public static bool TryParse(string input, out string language, out string meaning)
+    public static string Name(LanguageType type) => typeof(LanguageType).GetField(type.ToString())?.GetCustomAttribute<DisplayAttribute>()?.Name ?? type.ToString();
+    public static string SupportedLanguages => string.Join("، ", Enum.GetValues<LanguageType>().Select(Name));
+    public static bool TryParse(string input, out LanguageType type, out string meaning)
     {
-        language = meaning = "";
+        type = default;
+        meaning = "";
         var separator = input.IndexOfAny([':', '：']);
         if (separator < 0) return false;
-        language = input[..separator].Trim();
+        var language = Normalize(input[..separator]);
         meaning = input[(separator + 1)..].Trim();
-        return language.Length is > 0 and <= 100 && meaning.Length is > 0 and <= 2000 && !language.Contains('\n') && !language.Contains('\r');
+        if (meaning.Length is < 1 or > 2000) return false;
+        foreach (var candidate in Enum.GetValues<LanguageType>())
+        {
+            if (language == Normalize(Name(candidate)) || language == Normalize(candidate.ToString()))
+            {
+                type = candidate;
+                return true;
+            }
+        }
+        return false;
     }
+    private static string Normalize(string value) => WordNormalizer.Normalize(value.Replace('ي', 'ی').Replace('ك', 'ک'));
 }

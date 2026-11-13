@@ -88,24 +88,6 @@ namespace VocabularyBot.Infrastructure.Migrations
                     b.ToTable("CourseMemberships");
                 });
 
-            modelBuilder.Entity("VocabularyBot.Domain.LegacyVocabularyTitle", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("NormalizedTitle")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("NormalizedTitle")
-                        .IsUnique();
-
-                    b.ToTable("LegacyVocabularyTitles");
-                });
-
             modelBuilder.Entity("VocabularyBot.Domain.User", b =>
                 {
                     b.Property<Guid>("Id")
@@ -145,7 +127,7 @@ namespace VocabularyBot.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
-                    b.Property<Guid?>("CourseId")
+                    b.Property<Guid>("CourseId")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("EnglishWord")
@@ -153,12 +135,7 @@ namespace VocabularyBot.Infrastructure.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Family")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("FrenchTranslation")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("GermanTranslation")
+                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<string>("NormalizedWord")
@@ -173,13 +150,7 @@ namespace VocabularyBot.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("SpanishTranslation")
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("Synonyms")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Translations")
                         .HasColumnType("TEXT");
 
                     b.Property<Guid>("UserId")
@@ -203,24 +174,19 @@ namespace VocabularyBot.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("Language")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("Meaning")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("NormalizedLanguage")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
+                    b.Property<int>("Type")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid>("VocabularyEntryId")
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("VocabularyEntryId", "NormalizedLanguage")
+                    b.HasIndex("VocabularyEntryId", "Type")
                         .IsUnique();
 
                     b.ToTable("WordTranslations");
@@ -246,7 +212,8 @@ namespace VocabularyBot.Infrastructure.Migrations
                     b.HasOne("VocabularyBot.Domain.Course", null)
                         .WithMany()
                         .HasForeignKey("CourseId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.HasOne("VocabularyBot.Domain.User", null)
                         .WithMany()

@@ -17,16 +17,14 @@ public sealed class RegisterWordHandler(IGenericRepository repository, ILoggerFa
   if (v.Count < 6 || v.Take(5).Any(string.IsNullOrWhiteSpace)) return Result.Failure("کلمه انگلیسی، تلفظ، معنی فارسی و خانواده واژه اجباری هستند.");
   if (!Guid.TryParse(v[0], out var courseId) || !await repository.Query<CourseMembership>().AnyAsync(x => x.UserId == user.Id && x.CourseId == courseId, ct)) return Result.Failure("شناسه کلاس معتبر نیست یا شما عضو آن نیستید. /classes");
   var normalized = WordNormalizer.Normalize(v[1]);
-  if (await repository.Query<VocabularyEntry>().AnyAsync(x => x.NormalizedWord == normalized, ct) ||
-      await repository.Query<LegacyVocabularyTitle>().AnyAsync(x => x.NormalizedTitle == normalized, ct)) return Result.Failure("این واژه قبلاً ثبت شده است.");
+  if (await repository.Query<VocabularyEntry>().AnyAsync(x => x.NormalizedWord == normalized, ct)) return Result.Failure("این واژه قبلاً ثبت شده است.");
   var translations = new List<WordTranslation>();
-  var languages = new HashSet<string>();
+  var languages = new HashSet<LanguageType>();
   foreach (var line in v.Skip(6))
   {
-   if (!TranslationInput.TryParse(line, out var language, out var meaning)) return Result.Failure("قالب ترجمه معتبر نیست؛ هر ترجمه را به شکل «زبان: ترجمه» وارد کنید.");
-   var normalizedLanguage = TranslationInput.NormalizeLanguage(language);
-   if (!languages.Add(normalizedLanguage)) return Result.Failure($"ترجمه زبان «{language}» تکراری است.");
-   translations.Add(new WordTranslation { Language = language, NormalizedLanguage = normalizedLanguage, Meaning = meaning });
+   if (!TranslationInput.TryParse(line, out var type, out var meaning)) return Result.Failure("قالب ترجمه معتبر نیست؛ هر ترجمه را به شکل «زبان: ترجمه» وارد کنید.");
+   if (!languages.Add(type)) return Result.Failure($"ترجمه زبان «{TranslationInput.Name(type)}» تکراری است.");
+   translations.Add(new WordTranslation { Type = type, Meaning = meaning });
   }
   var entry = new VocabularyEntry { UserId = user.Id, CourseId = courseId, EnglishWord = v[1].Trim(), NormalizedWord = normalized, Pronunciation = v[2].Trim(), PersianMeaning = v[3].Trim(), Family = v[4].Trim(), Synonyms = Optional(v[5]) };
   repository.Create(entry);

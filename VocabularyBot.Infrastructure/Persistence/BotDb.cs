@@ -8,7 +8,6 @@ public class BotDb(DbContextOptions<BotDb> options) : DbContext(options)
     public DbSet<User> Users => Set<User>();
     public DbSet<Course> Courses => Set<Course>();
     public DbSet<CourseMembership> CourseMemberships => Set<CourseMembership>();
-    public DbSet<LegacyVocabularyTitle> LegacyVocabularyTitles => Set<LegacyVocabularyTitle>();
     public DbSet<WordTranslation> WordTranslations => Set<WordTranslation>();
     public DbSet<VocabularyEntry> VocabularyEntries => Set<VocabularyEntry>();
     public DbSet<Conversation> Conversations => Set<Conversation>();

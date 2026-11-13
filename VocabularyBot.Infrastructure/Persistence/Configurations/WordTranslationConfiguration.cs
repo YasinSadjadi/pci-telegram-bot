@@ -6,7 +6,7 @@ public sealed class WordTranslationConfiguration : IEntityTypeConfiguration<Word
 {
     public void Configure(EntityTypeBuilder<WordTranslation> builder)
     {
-        builder.HasIndex(x => new { x.VocabularyEntryId, x.NormalizedLanguage }).IsUnique();
+        builder.HasIndex(x => new { x.VocabularyEntryId, x.Type }).IsUnique();
         builder.HasOne<VocabularyEntry>().WithMany().HasForeignKey(x => x.VocabularyEntryId).OnDelete(DeleteBehavior.Cascade);
     }
 }

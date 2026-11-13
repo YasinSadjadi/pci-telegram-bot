@@ -25,7 +25,7 @@ public sealed class BotService(IGenericRepository repository, IMediator mediator
         "معنی فارسی را وارد کنید:",
         "خانواده واژه را وارد کنید:",
         "مترادف‌ها را وارد کنید یا /skip بفرستید:",
-        "ترجمه‌ها اختیاری‌اند. هر ترجمه را به شکل «زبان: ترجمه» بفرستید؛ مثلاً «آلمانی: Beispiel». می‌توانید چند خط بفرستید. برای پایان /done را ارسال کنید:"
+        $"ترجمه اختیاری است. هر ترجمه را به شکل «زبان: ترجمه» بفرستید؛ مثلاً «آلمانی: Beispiel». زبان‌های پشتیبانی‌شده: {TranslationInput.SupportedLanguages}. برای پایان /done را بفرستید:"
 
     ];
 
@@ -77,7 +77,7 @@ public sealed class BotService(IGenericRepository repository, IMediator mediator
             if (user.StudentNumber is null) return "ابتدا شماره دانشجویی خود را ثبت کنید: /register";
             var memberships = await repository.Query<CourseMembership>(false).Where(m => m.UserId == user.Id).Select(m => m.CourseId).ToListAsync();
             if (memberships.Count == 0) return "ابتدا با /join کلاس خود را انتخاب کنید.";
-            await StartFlow(user.Id, "word_v3");
+            await StartFlow(user.Id, "word");
             if (memberships.Count == 1)
             {
                 var wordState = await repository.Query<Conversation>().SingleAsync(c => c.UserId == user.Id);
@@ -128,8 +128,7 @@ public sealed class BotService(IGenericRepository repository, IMediator mediator
             if (result.IsSuccessful) { await ClearFlow(user.Id); return result.Message; }
             return result.Message + "\nلطفاً مقدار این مرحله را دوباره وارد کنید یا /cancel را بفرستید.";
         }
-        if (state.Flow is "word" or "word_v2") return "فرم قبلی تغییر کرده است. لطفاً برای شروع فرم جدید /word را بفرستید یا با /cancel آن را لغو کنید.";
-        if (state.Flow != "word_v3") { await ClearFlow(user.Id); return "این عملیات دیگر پشتیبانی نمی‌شود. دوباره شروع کنید."; }
+        if (state.Flow != "word") { await ClearFlow(user.Id); return "این عملیات دیگر پشتیبانی نمی‌شود. دوباره شروع کنید."; }
         var values = JsonSerializer.Deserialize<List<string>>(state.Data) ?? [];
         if (values.Count >= 6)
         {
@@ -143,16 +142,16 @@ public sealed class BotService(IGenericRepository repository, IMediator mediator
             if (input.Length == 0 || input.Length > 2000) return "متن ترجمه باید بین ۱ تا ۲۰۰۰ نویسه باشد.";
             var lines = input.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
             if (lines.Length == 0) return "هر ترجمه را به شکل «زبان: ترجمه» وارد کنید.";
-            var parsed = new List<(string Language, string Meaning)>();
+            var parsed = new List<(LanguageType Type, string Meaning)>();
             foreach (var line in lines)
             {
-                if (!TranslationInput.TryParse(line, out var language, out var meaning)) return "قالب ترجمه معتبر نیست. هر خط را به شکل «زبان: ترجمه» وارد کنید؛ مثلاً «آلمانی: Beispiel».";
-                parsed.Add((language, meaning));
+                if (!TranslationInput.TryParse(line, out var type, out var meaning)) return $"زبان یا قالب ترجمه معتبر نیست. به شکل «آلمانی: Beispiel» وارد کنید. زبان‌های پشتیبانی‌شده: {TranslationInput.SupportedLanguages}.";
+                parsed.Add((type, meaning));
             }
             foreach (var item in parsed)
             {
-                var index = values.FindIndex(6, line => TranslationInput.TryParse(line, out var previousLanguage, out _) && TranslationInput.NormalizeLanguage(previousLanguage) == TranslationInput.NormalizeLanguage(item.Language));
-                var line = $"{item.Language}: {item.Meaning}";
+                var index = values.FindIndex(6, line => TranslationInput.TryParse(line, out var previousType, out _) && previousType == item.Type);
+                var line = $"{TranslationInput.Name(item.Type)}: {item.Meaning}";
                 if (index < 0) values.Add(line); else values[index] = line;
             }
             state.Data = JsonSerializer.Serialize(values);
@@ -170,8 +169,7 @@ public sealed class BotService(IGenericRepository repository, IMediator mediator
         if (values.Count == 1 && input != "/skip")
         {
             var normalized = WordNormalizer.Normalize(input);
-            if (await repository.Query<VocabularyEntry>().AnyAsync(x => x.NormalizedWord == normalized) ||
-                await repository.Query<LegacyVocabularyTitle>().AnyAsync(x => x.NormalizedTitle == normalized))
+            if (await repository.Query<VocabularyEntry>().AnyAsync(x => x.NormalizedWord == normalized))
                 return "این واژه قبلاً ثبت شده است. لطفاً واژه دیگری وارد کنید یا /cancel را بفرستید.";
         }
         values.Add(input == "/skip" ? "" : input);

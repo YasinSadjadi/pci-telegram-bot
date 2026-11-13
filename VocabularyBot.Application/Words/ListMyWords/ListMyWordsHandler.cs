@@ -1,3 +1,4 @@
+using VocabularyBot.Application.Words;
 using Microsoft.EntityFrameworkCore;
 using VocabularyBot.Domain;
 using VocabularyBot.Infrastructure.Abstractions.Messaging.Interfaces;
@@ -14,7 +15,7 @@ public sealed class ListMyWordsHandler(IGenericRepository repository) : IQueryHa
         var words = await repository.Query<VocabularyEntry>(false).Where(x => x.UserId == user.Id).OrderBy(x => x.EnglishWord).ToListAsync(ct);
         if (words.Count == 0) return "هنوز واژه‌ای ثبت نکرده‌اید.";
         var ids = words.Select(x => x.Id).ToArray();
-        var translations = await repository.Query<WordTranslation>(false).Where(x => ids.Contains(x.VocabularyEntryId)).OrderBy(x => x.Language).ToListAsync(ct);
+        var translations = await repository.Query<WordTranslation>(false).Where(x => ids.Contains(x.VocabularyEntryId)).OrderBy(x => x.Type).ToListAsync(ct);
         var byWord = translations.ToLookup(x => x.VocabularyEntryId);
         return string.Join("\n\n", words.Select(word => Format(word, byWord[word.Id])));
     }
@@ -24,8 +25,7 @@ public sealed class ListMyWordsHandler(IGenericRepository repository) : IQueryHa
         var lines = new List<string> { $"واژه: {word.EnglishWord}", $"تلفظ: {word.Pronunciation}", $"معنی فارسی: {word.PersianMeaning}" };
         Add(lines, "خانواده واژه", word.Family);
         Add(lines, "مترادف", word.Synonyms);
-        foreach (var translation in translations) Add(lines, translation.Language, translation.Meaning);
-        Add(lines, "سایر زبان‌ها (قدیمی)", word.Translations);
+        foreach (var translation in translations) Add(lines, TranslationInput.Name(translation.Type), translation.Meaning);
         return string.Join("\n", lines);
     }
 
