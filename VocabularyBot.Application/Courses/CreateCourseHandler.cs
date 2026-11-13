@@ -15,6 +15,6 @@ public sealed class CreateCourseHandler(IGenericRepository repository,ILoggerFac
   if (string.IsNullOrWhiteSpace(request.University) || request.University.Length>200) return Result.Failure("نام دانشگاه را وارد کنید؛ حداکثر ۲۰۰ نویسه مجاز است.");
   if (!int.TryParse(Digits.Convert(request.Year),out int year) || year<=0 || !int.TryParse(Digits.Convert(request.Term),out int term) || term<=0) return Result.Failure("سال و شماره ترم باید عدد مثبت باشند. لطفاً دوباره وارد کنید.");
   var course=new Course{University=request.University.Trim(),Year=year,Term=term};repository.Create(course);await repository.SaveChangesAsync(ct);
-  return Result.Success($"کلاس ساخته شد. شناسه کلاس: {course.Id}");
+  return Result.Success("کلاس ثبت شد");
  }
 }
