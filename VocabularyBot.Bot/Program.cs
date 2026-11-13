@@ -5,10 +5,9 @@ using VocabularyBot.Application;
 using VocabularyBot.Infrastructure;
 
 var token = Environment.GetEnvironmentVariable("BOT_TOKEN");
-if (string.IsNullOrWhiteSpace(token) ||
-    !long.TryParse(Environment.GetEnvironmentVariable("BOT_ADMIN_ID"), out var adminId) || adminId <= 0)
+if (string.IsNullOrWhiteSpace(token))
 {
-    Console.Error.WriteLine("Set BOT_TOKEN and BOT_ADMIN_ID environment variables.");
+    Console.Error.WriteLine("Set the BOT_TOKEN environment variable.");
     return;
 }
 
@@ -18,10 +17,15 @@ Directory.CreateDirectory(folder);
 var builder = Host.CreateApplicationBuilder(args);
 builder.Services.AddDbContext<BotDb>(o => o.UseSqlite($"Data Source={Path.Combine(folder, "vocabulary.db")}"));
 builder.Services.AddInfrastructure();
-builder.Services.AddApplication(adminId);
+var configuredAdmin = Environment.GetEnvironmentVariable("BOT_ADMIN_ID");
+if (!string.IsNullOrWhiteSpace(configuredAdmin) && (!long.TryParse(configuredAdmin, out var parsedAdmin) || parsedAdmin <= 0))
+{
+    Console.Error.WriteLine("BOT_ADMIN_ID must be a positive Telegram numeric ID.");
+    return;
+}
+builder.Services.AddApplication(long.TryParse(configuredAdmin, out var adminId) ? adminId : null);
 builder.Services.AddSingleton(new TelegramClient(token));
 builder.Services.AddHostedService<PollingWorker>();
-builder.Services.AddHostedService<ReminderWorker>();
 using var host = builder.Build();
 using (var scope = host.Services.CreateScope())
 {

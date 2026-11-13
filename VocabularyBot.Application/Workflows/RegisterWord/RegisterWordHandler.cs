@@ -4,48 +4,23 @@ using VocabularyBot.Domain;
 using VocabularyBot.Domain.Words;
 using VocabularyBot.Infrastructure.Abstractions.Results;
 using VocabularyBot.Infrastructure.Persistence.Repositories;
-
 namespace VocabularyBot.Application.Workflows.RegisterWord;
-
 public sealed class RegisterWordHandler(IGenericRepository repository, ILoggerFactory loggerFactory)
-    : WorkflowHandlerBase<RegisterWordCommand>(repository, loggerFactory)
+ : WorkflowHandlerBase<RegisterWordCommand>(repository, loggerFactory)
 {
-    protected override async Task<Result> Execute(RegisterWordCommand request, CancellationToken cancellationToken)
-    {
-        var u = await repository.Query<User>().FirstOrDefaultAsync(x => x.TelegramId == request.ActorId, cancellationToken);
-        if (u is null) return Result.Failure("دسترسی ندارید.");
-        var v = request.Values;
-        if (v.Count != 8) return Result.Failure("اطلاعات درخواست معتبر نیست.");
-        var gid = ParseId(v[0]);
-        var g = await repository.FindAsync<StudyGroup>(gid) ??
-                throw new InvalidOperationException("گروه وجود ندارد.");
-        if (!await repository.Query<Membership>().AnyAsync(x => x.GroupId == gid && x.UserId == u.Id))
-            throw new InvalidOperationException("عضو این گروه نیستید.");
-        var week = await repository.FindAsync<StudyWeek>(ParseId(v[1])) ??
-                   throw new InvalidOperationException("هفته وجود ندارد.");
-        var now = DateTime.UtcNow;
-        if (week.CourseId != g.CourseId || now < week.StartUtc || now >= week.EndUtc)
-            throw new InvalidOperationException("هفته برای این کلاس فعال نیست.");
-        var normalized = WordNormalizer.Normalize(v[2]);
-        if (await repository.Query<Word>().AnyAsync(x => x.CourseId == g.CourseId && x.NormalizedTitle == normalized))
-            throw new InvalidOperationException("این واژه قبلاً در کلاس ثبت شده است.");
-        repository.Create(new Word
-        {
-            CourseId = g.CourseId,
-            GroupId = gid,
-            WeekId = week.Id,
-            UserId = u.Id,
-            Title = v[2],
-            NormalizedTitle = normalized,
-            Meaning = v[3],
-            Definition = v[4],
-            Example = v[5],
-            Related = v[6],
-            Source = v[7]
-        });
-        await repository.SaveChangesAsync();
-        var count = await repository.Query<Word>()
-            .CountAsync(x => x.WeekId == week.Id && x.GroupId == gid && x.UserId == u.Id);
-        return Result.Success($"واژه ثبت شد. تعداد این هفته: {count}/5");
-    }
+ protected override async Task<Result> Execute(RegisterWordCommand request, CancellationToken ct)
+ {
+  var user = await repository.Query<User>().FirstOrDefaultAsync(x => x.TelegramId == request.ActorId, ct);
+  if (user?.StudentNumber is null) return Result.Failure("ابتدا شماره دانشجویی خود را ثبت کنید: /register");
+  var v = request.Values;
+  if (v.Count != 7 || v.Take(4).Any(string.IsNullOrWhiteSpace)) return Result.Failure("کلمه انگلیسی، تلفظ و معنی فارسی اجباری هستند.");
+  if (!Guid.TryParse(v[0], out var courseId) || !await repository.Query<CourseMembership>().AnyAsync(x => x.UserId == user.Id && x.CourseId == courseId, ct)) return Result.Failure("شناسه کلاس معتبر نیست یا شما عضو آن نیستید. /classes");
+  var normalized = WordNormalizer.Normalize(v[1]);
+  if (await repository.Query<VocabularyEntry>().AnyAsync(x => x.NormalizedWord == normalized, ct) ||
+      await repository.Query<Word>().AnyAsync(x => x.NormalizedTitle == normalized, ct)) return Result.Failure("این واژه قبلاً ثبت شده است.");
+  repository.Create(new VocabularyEntry { UserId = user.Id, CourseId = courseId, EnglishWord = v[1].Trim(), NormalizedWord = normalized, Pronunciation = v[2].Trim(), PersianMeaning = v[3].Trim(), Family = Optional(v[4]), Synonyms = Optional(v[5]), Translations = Optional(v[6]) });
+  await repository.SaveChangesAsync(ct);
+  return Result.Success("واژه ثبت شد.");
+ }
+ private static string? Optional(string value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }

@@ -21,14 +21,12 @@ public abstract class BaseCommandHandler<TCommand>(ILoggerFactory loggerFactory)
         {
             throw;
         }
-        catch (Exception ex) when (ex is FormatException or ArgumentException or InvalidOperationException
-                                       or DbUpdateException)
+        catch (Exception ex)
         {
-            OnFailure();
-            logger.LogWarning("Command {Command} failed with {Error}", typeof(TCommand).Name, ex.GetType().Name);
-            return Result.Failure("عملیات انجام نشد: " +
-                                  (ex is DbUpdateException ? "اطلاعات تکراری یا نامعتبر است." : ex.Message) +
-                                  "\nلطفاً دوباره شروع کنید.");
+            try { OnFailure(); }
+            catch (Exception cleanupException) { logger.LogError(cleanupException, "Failed to reset state after {Command}", typeof(TCommand).Name); }
+            logger.LogError(ex, "Command {Command} failed", typeof(TCommand).Name);
+            return Result.Failure("متأسفانه انجام عملیات ممکن نشد. لطفاً دوباره تلاش کنید؛ اگر مشکل ادامه داشت با پشتیبانی تماس بگیرید.");
         }
     }
 

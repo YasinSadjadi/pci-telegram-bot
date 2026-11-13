@@ -15,7 +15,11 @@ public sealed class AssignAdminHandler(IGenericRepository repository, ILoggerFac
         if (u is null || !u.IsAdmin) return Result.Failure("دسترسی ندارید.");
         var v = request.Values;
         if (v.Count != 1) return Result.Failure("اطلاعات درخواست معتبر نیست.");
-        var target = await FindUser(v[0]);
+        var identifier = Digits(v[0].Trim().TrimStart('@'));
+        var target = long.TryParse(identifier, out var telegramId)
+            ? await repository.Query<User>().FirstOrDefaultAsync(x => x.TelegramId == telegramId, cancellationToken)
+            : await repository.Query<User>().FirstOrDefaultAsync(x => x.Username != null && x.Username.ToLower() == identifier.ToLower(), cancellationToken);
+        if (target is null) return Result.Failure("کاربر پیدا نشد. ابتدا باید /start را ارسال کند؛ شناسه را بررسی کنید.");
         target.IsAdmin = true;
         await repository.SaveChangesAsync(cancellationToken);
         return Result.Success("نقش ادمین ثبت شد.");
