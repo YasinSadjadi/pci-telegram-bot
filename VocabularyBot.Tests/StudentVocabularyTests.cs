@@ -67,18 +67,19 @@ public sealed class StudentVocabularyTests
         var course = await JoinClass(env, 10);
         await env.Send(10, "/word");
         Assert.Contains("اجباری", await env.Send(10, "/skip"));
-        await env.Send(10, course.Id.ToString());
-        Assert.Contains("اجباری", await env.Send(10, "/skip"));
         await env.Send(10, "Eventual Consistency");
         Assert.Contains("اجباری", await env.Send(10, "/skip"));
         await env.Send(10, "/ɪˈventʃuəl/");
         Assert.Contains("اجباری", await env.Send(10, "/skip"));
         await env.Send(10, "سازگاری نهایی");
-        await env.Send(10, "/skip"); await env.Send(10, "/skip");
-        Assert.Contains("ثبت شد", await env.Send(10, "/skip"));
+        Assert.Contains("اجباری", await env.Send(10, "/skip"));
+        await env.Send(10, "consistent, consistency");
+        await env.Send(10, "/skip");
+        Assert.Contains("ثبت شد", await env.Send(10, "/done"));
         var entry = await env.Db.VocabularyEntries.SingleAsync();
         Assert.Equal("Eventual Consistency", entry.EnglishWord); Assert.Equal("/ɪˈventʃuəl/", entry.Pronunciation);
-        Assert.Null(entry.Family); Assert.Null(entry.Synonyms); Assert.Null(entry.Translations);
+        Assert.Equal("consistent, consistency", entry.Family); Assert.Null(entry.Synonyms);
+        Assert.Null(entry.GermanTranslation); Assert.Null(entry.FrenchTranslation); Assert.Null(entry.SpanishTranslation); Assert.Null(entry.Translations);
         Assert.Contains("Eventual Consistency", await env.Send(10, "/words"));
     }
 
@@ -91,16 +92,27 @@ public sealed class StudentVocabularyTests
         var course = await JoinClass(env, 10, 11);
         async Task<string> Word(long user, string title)
         {
-            await env.Send(user, "/word"); await env.Send(user, course.Id.ToString()); await env.Send(user, title); await env.Send(user, "pronunciation");
+            await env.Send(user, "/word"); await env.Send(user, title); await env.Send(user, "pronunciation");
             await env.Send(user, "معنی"); await env.Send(user, "family"); await env.Send(user, "synonym");
-            return await env.Send(user, "آلمانی: Beispiel، اسپانیایی: ejemplo");
+            await env.Send(user, "آلمانی: Beispiel\nفرانسوی: exemple");
+            await env.Send(user, "اسپانیایی: ejemplo"); await env.Send(user, "ایتالیایی: esempio");
+            return await env.Send(user, "/done");
         }
         Assert.Contains("ثبت شد", await Word(10, "  Example   Phrase "));
-        await env.Send(11, "/word"); await env.Send(11, course.Id.ToString());
+        await env.Send(11, "/word");
         Assert.Contains("قبلاً", await env.Send(11, "example phrase"));
         await env.Send(11, "/cancel");
         var word = await env.Db.VocabularyEntries.SingleAsync();
-        Assert.Equal("family", word.Family); Assert.Equal("synonym", word.Synonyms); Assert.Contains("اسپانیایی", word.Translations);
+        Assert.Equal("family", word.Family); Assert.Equal("synonym", word.Synonyms);
+        var translations = await env.Db.WordTranslations.Where(x => x.VocabularyEntryId == word.Id).ToListAsync();
+        Assert.Equal(4, translations.Count);
+        Assert.Contains(translations, x => x.Language == "آلمانی" && x.Meaning == "Beispiel");
+        Assert.Contains(translations, x => x.Language == "ایتالیایی" && x.Meaning == "esempio");
+        var list = await env.Send(10, "/words");
+        Assert.Contains("خانواده واژه: family", list);
+        Assert.Contains("آلمانی: Beispiel", list);
+        Assert.Contains("فرانسوی: exemple", list);
+        Assert.Contains("اسپانیایی: ejemplo", list);
         Assert.DoesNotContain("Example", await env.Send(11, "/words"));
     }
 
@@ -114,7 +126,7 @@ public sealed class StudentVocabularyTests
         await env.Send(10, "100");
         foreach (var command in new[] { "/group", "/week", "/leader", "/groups", "/status" })
             Assert.Contains("ناشناخته", await env.Send(10, command));
-        await env.Send(10, "/word");
+        Assert.Contains("/join", await env.Send(10, "/word"));
         Assert.Contains("لغو", await env.Send(10, "/cancel"));
         Assert.Empty(await env.Db.Conversations.ToListAsync());
     }
@@ -136,14 +148,10 @@ public sealed class StudentVocabularyTests
     {
         await using var env = new TestEnvironment(); await env.Initialize();
         await env.Send(10, "/start"); await env.Send(10, "100");
-        var user = await env.Db.Users.SingleAsync();
-        var course = new Course { University = "Legacy", Year = 404, Term = 1 };
-        var group = new StudyGroup { CourseId = course.Id, Number = 1 };
-        var week = new StudyWeek { CourseId = course.Id, Label = "Old", StartUtc = DateTime.UtcNow.AddDays(-2), EndUtc = DateTime.UtcNow.AddDays(-1) };
-        env.Db.AddRange(course, group, week, new Word { CourseId = course.Id, GroupId = group.Id, WeekId = week.Id, UserId = user.Id, Title = "Example", NormalizedTitle = "EXAMPLE" });
+        env.Db.LegacyVocabularyTitles.Add(new LegacyVocabularyTitle { NormalizedTitle = "EXAMPLE" });
         await env.Db.SaveChangesAsync();
         var currentCourse = await JoinClass(env, 10);
-        await env.Send(10, "/word"); await env.Send(10, currentCourse.Id.ToString());
+        await env.Send(10, "/word");
         Assert.Contains("قبلاً", await env.Send(10, "example"));
         Assert.Empty(await env.Db.VocabularyEntries.ToListAsync());
     }
@@ -203,6 +211,7 @@ public sealed class StudentVocabularyTests
         await using var env = new TestEnvironment(); await env.Initialize();
         await env.Send(10, "/start"); await env.Send(10, "100");
         var course = await JoinClass(env, 10);
+        await JoinClass(env, 10);
         await env.Send(10, "/word");
         Assert.Contains("عضو آن نیستید", await env.Send(10, Guid.NewGuid().ToString()));
         Assert.Contains("کلمه", await env.Send(10, course.Id.ToString()));
@@ -234,6 +243,71 @@ public sealed class StudentVocabularyTests
         Assert.Contains("پیدا نشد", await env.Send(1, "missing"));
         Assert.Contains("ادمین", await env.Send(1, "user10"));
         Assert.True((await env.Db.Users.SingleAsync(x => x.TelegramId == 10)).IsAdmin);
+    }
+
+    [Fact]
+    public async Task Student_registers_selects_class_then_adds_a_word_without_any_group_step()
+    {
+        await using var env = new TestEnvironment(); await env.Initialize();
+        var course = new Course { University = "U", Year = 404, Term = 1 };
+        env.Db.Courses.Add(course); await env.Db.SaveChangesAsync();
+        Assert.Contains("شماره دانشجویی", await env.Send(10, "/start"));
+        Assert.Contains(course.Id.ToString(), await env.Send(10, "1234"));
+        Assert.Contains("عضویت", await env.Send(10, course.Id.ToString()));
+        Assert.Contains("کلمه", await env.Send(10, "/word"));
+        await env.Send(10, "Computer Science");
+        await env.Send(10, "/kəmˈpjuːtər/");
+        await env.Send(10, "علوم کامپیوتر");
+        await env.Send(10, "computer, computing");
+        await env.Send(10, "/skip");
+        Assert.Contains("ثبت شد", await env.Send(10, "/done"));
+        Assert.Equal(course.Id, (await env.Db.VocabularyEntries.SingleAsync()).CourseId);
+    }
+
+    [Fact]
+    public async Task Old_in_progress_word_form_is_not_silently_reinterpreted()
+    {
+        await using var env = new TestEnvironment(); await env.Initialize();
+        await env.Send(10, "/start"); await env.Send(10, "100");
+        var user = await env.Db.Users.SingleAsync();
+        var state = await env.Db.Conversations.SingleAsync(x => x.UserId == user.Id);
+        state.Flow = "word"; state.Data = "[\"old draft\"]";
+        await env.Db.SaveChangesAsync();
+        var response = await env.Send(10, "value");
+        Assert.Contains("/word", response);
+        Assert.Equal("[\"old draft\"]", (await env.Db.Conversations.SingleAsync(x => x.UserId == user.Id)).Data);
+    }
+
+    [Fact]
+    public async Task Translations_accept_arbitrary_languages_and_allow_corrections_without_losing_draft()
+    {
+        await using var env = new TestEnvironment(); await env.Initialize();
+        await env.Send(10, "/start"); await env.Send(10, "100"); await JoinClass(env, 10);
+        await env.Send(10, "/word"); await env.Send(10, "example"); await env.Send(10, "pronunciation");
+        await env.Send(10, "معنی"); await env.Send(10, "family"); await env.Send(10, "/skip");
+        Assert.Contains("قالب", await env.Send(10, "ترجمه بدون زبان"));
+        Assert.Contains("به فرم اضافه شد", await env.Send(10, "ژاپنی: 例"));
+        Assert.Contains("به فرم اضافه شد", await env.Send(10, "ژاپنی: 新"));
+        Assert.Contains("به فرم اضافه شد", await env.Send(10, "Portuguese: exemplo"));
+        Assert.Contains("به فرم اضافه شد", await env.Send(10, "portuguese: outro"));
+        Assert.Contains("ثبت شد", await env.Send(10, "/done"));
+        var translations = await env.Db.WordTranslations.ToListAsync();
+        Assert.Equal(2, translations.Count);
+        Assert.Contains(translations, t => t.Language == "ژاپنی" && t.Meaning == "新");
+        Assert.Contains(translations, t => t.Language == "portuguese" && t.Meaning == "outro");
+    }
+
+    [Fact]
+    public async Task Command_rejects_missing_family_even_if_form_is_bypassed()
+    {
+        await using var env = new TestEnvironment(); await env.Initialize();
+        await env.Send(10, "/start"); await env.Send(10, "100");
+        var course = await JoinClass(env, 10);
+        var result = await env.Mediator.Send(new VocabularyBot.Application.Workflows.RegisterWord.RegisterWordCommand(10,
+            [course.Id.ToString(), "word", "pronunciation", "معنی", " ", ""]));
+        Assert.False(result.IsSuccessful);
+        Assert.Contains("خانواده", result.Message);
+        Assert.Empty(await env.Db.VocabularyEntries.ToListAsync());
     }
 
 }

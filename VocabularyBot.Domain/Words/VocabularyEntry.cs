@@ -10,5 +10,8 @@ public sealed class VocabularyEntry : Entity
  public string PersianMeaning { get; set; } = "";
  public string? Family { get; set; }
  public string? Synonyms { get; set; }
+ public string? GermanTranslation { get; set; }
+ public string? FrenchTranslation { get; set; }
+ public string? SpanishTranslation { get; set; }
  public string? Translations { get; set; }
 }

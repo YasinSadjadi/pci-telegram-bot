@@ -88,104 +88,22 @@ namespace VocabularyBot.Infrastructure.Migrations
                     b.ToTable("CourseMemberships");
                 });
 
-            modelBuilder.Entity("VocabularyBot.Domain.Membership", b =>
+            modelBuilder.Entity("VocabularyBot.Domain.LegacyVocabularyTitle", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
-                    b.Property<Guid>("GroupId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId");
-
-                    b.HasIndex("GroupId", "UserId")
-                        .IsUnique();
-
-                    b.ToTable("Memberships");
-                });
-
-            modelBuilder.Entity("VocabularyBot.Domain.Reminder", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid>("GroupId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("SentUtc")
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid>("WeekId")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("WeekId", "GroupId", "UserId")
-                        .IsUnique();
-
-                    b.ToTable("Reminders");
-                });
-
-            modelBuilder.Entity("VocabularyBot.Domain.StudyGroup", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid>("CourseId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid?>("LeaderId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("Number")
-                        .HasColumnType("INTEGER");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CourseId", "Number")
-                        .IsUnique();
-
-                    b.ToTable("Groups");
-                });
-
-            modelBuilder.Entity("VocabularyBot.Domain.StudyWeek", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid>("CourseId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("EndUtc")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Label")
+                    b.Property<string>("NormalizedTitle")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTime>("ReminderUtc")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("StartUtc")
-                        .HasColumnType("TEXT");
-
                     b.HasKey("Id");
 
-                    b.HasIndex("CourseId");
+                    b.HasIndex("NormalizedTitle")
+                        .IsUnique();
 
-                    b.ToTable("Weeks");
+                    b.ToTable("LegacyVocabularyTitles");
                 });
 
             modelBuilder.Entity("VocabularyBot.Domain.User", b =>
@@ -237,6 +155,12 @@ namespace VocabularyBot.Infrastructure.Migrations
                     b.Property<string>("Family")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("FrenchTranslation")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("GermanTranslation")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("NormalizedWord")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -247,6 +171,9 @@ namespace VocabularyBot.Infrastructure.Migrations
 
                     b.Property<string>("Pronunciation")
                         .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SpanishTranslation")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Synonyms")
@@ -270,64 +197,33 @@ namespace VocabularyBot.Infrastructure.Migrations
                     b.ToTable("VocabularyEntries");
                 });
 
-            modelBuilder.Entity("VocabularyBot.Domain.Word", b =>
+            modelBuilder.Entity("VocabularyBot.Domain.WordTranslation", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
-                    b.Property<Guid>("CourseId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Definition")
+                    b.Property<string>("Language")
                         .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Example")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid>("GroupId")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Meaning")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("NormalizedTitle")
+                    b.Property<string>("NormalizedLanguage")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("Related")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Source")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid>("WeekId")
+                    b.Property<Guid>("VocabularyEntryId")
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("GroupId");
-
-                    b.HasIndex("UserId");
-
-                    b.HasIndex("WeekId");
-
-                    b.HasIndex("CourseId", "NormalizedTitle")
+                    b.HasIndex("VocabularyEntryId", "NormalizedLanguage")
                         .IsUnique();
 
-                    b.ToTable("Words");
+                    b.ToTable("WordTranslations");
                 });
 
             modelBuilder.Entity("VocabularyBot.Domain.CourseMembership", b =>
@@ -341,39 +237,6 @@ namespace VocabularyBot.Infrastructure.Migrations
                     b.HasOne("VocabularyBot.Domain.User", null)
                         .WithMany()
                         .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("VocabularyBot.Domain.Membership", b =>
-                {
-                    b.HasOne("VocabularyBot.Domain.StudyGroup", null)
-                        .WithMany()
-                        .HasForeignKey("GroupId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("VocabularyBot.Domain.User", null)
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("VocabularyBot.Domain.StudyGroup", b =>
-                {
-                    b.HasOne("VocabularyBot.Domain.Course", null)
-                        .WithMany()
-                        .HasForeignKey("CourseId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("VocabularyBot.Domain.StudyWeek", b =>
-                {
-                    b.HasOne("VocabularyBot.Domain.Course", null)
-                        .WithMany()
-                        .HasForeignKey("CourseId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
@@ -392,30 +255,12 @@ namespace VocabularyBot.Infrastructure.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("VocabularyBot.Domain.Word", b =>
+            modelBuilder.Entity("VocabularyBot.Domain.WordTranslation", b =>
                 {
-                    b.HasOne("VocabularyBot.Domain.Course", null)
+                    b.HasOne("VocabularyBot.Domain.VocabularyEntry", null)
                         .WithMany()
-                        .HasForeignKey("CourseId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("VocabularyBot.Domain.StudyGroup", null)
-                        .WithMany()
-                        .HasForeignKey("GroupId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("VocabularyBot.Domain.User", null)
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("VocabularyBot.Domain.StudyWeek", null)
-                        .WithMany()
-                        .HasForeignKey("WeekId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasForeignKey("VocabularyEntryId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 #pragma warning restore 612, 618

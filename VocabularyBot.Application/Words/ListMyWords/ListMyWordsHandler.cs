@@ -2,14 +2,35 @@ using Microsoft.EntityFrameworkCore;
 using VocabularyBot.Domain;
 using VocabularyBot.Infrastructure.Abstractions.Messaging.Interfaces;
 using VocabularyBot.Infrastructure.Persistence.Repositories;
+
 namespace VocabularyBot.Application.Words.ListMyWords;
+
 public sealed class ListMyWordsHandler(IGenericRepository repository) : IQueryHandler<ListMyWordsQuery, string>
 {
- public async Task<string> Handle(ListMyWordsQuery request, CancellationToken ct)
- {
-  var user = await repository.Query<User>(false).FirstOrDefaultAsync(x => x.TelegramId == request.TelegramId, ct);
-  if (user?.StudentNumber is null) return "ابتدا شماره دانشجویی خود را ثبت کنید: /register";
-  var words = await repository.Query<VocabularyEntry>(false).Where(x => x.UserId == user.Id).OrderBy(x => x.EnglishWord).ToListAsync(ct);
-  return words.Count == 0 ? "هنوز واژه‌ای ثبت نکرده‌اید." : string.Join("\n", words.Select(x => $"{x.EnglishWord} | {x.Pronunciation} | {x.PersianMeaning}"));
- }
+    public async Task<string> Handle(ListMyWordsQuery request, CancellationToken ct)
+    {
+        var user = await repository.Query<User>(false).FirstOrDefaultAsync(x => x.TelegramId == request.TelegramId, ct);
+        if (user?.StudentNumber is null) return "ابتدا شماره دانشجویی خود را ثبت کنید: /register";
+        var words = await repository.Query<VocabularyEntry>(false).Where(x => x.UserId == user.Id).OrderBy(x => x.EnglishWord).ToListAsync(ct);
+        if (words.Count == 0) return "هنوز واژه‌ای ثبت نکرده‌اید.";
+        var ids = words.Select(x => x.Id).ToArray();
+        var translations = await repository.Query<WordTranslation>(false).Where(x => ids.Contains(x.VocabularyEntryId)).OrderBy(x => x.Language).ToListAsync(ct);
+        var byWord = translations.ToLookup(x => x.VocabularyEntryId);
+        return string.Join("\n\n", words.Select(word => Format(word, byWord[word.Id])));
+    }
+
+    private static string Format(VocabularyEntry word, IEnumerable<WordTranslation> translations)
+    {
+        var lines = new List<string> { $"واژه: {word.EnglishWord}", $"تلفظ: {word.Pronunciation}", $"معنی فارسی: {word.PersianMeaning}" };
+        Add(lines, "خانواده واژه", word.Family);
+        Add(lines, "مترادف", word.Synonyms);
+        foreach (var translation in translations) Add(lines, translation.Language, translation.Meaning);
+        Add(lines, "سایر زبان‌ها (قدیمی)", word.Translations);
+        return string.Join("\n", lines);
+    }
+
+    private static void Add(List<string> lines, string label, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value)) lines.Add($"{label}: {value}");
+    }
 }

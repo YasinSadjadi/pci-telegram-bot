@@ -24,8 +24,18 @@ INSERT INTO Reminders(WeekId,GroupId,UserId,SentUtc) VALUES (30,20,12345,'2026-0
 INSERT INTO Words(Id,CourseId,GroupId,WeekId,UserId,Title,NormalizedTitle,Meaning,Definition,Example,Related,Source) VALUES (40,10,20,30,12345,'Example','EXAMPLE','معنی','def','example','related','source');
 """);
             await db.Database.MigrateAsync(); db.ChangeTracker.Clear();
-            var user = await db.Users.SingleAsync(); var course = await db.Courses.SingleAsync(); var group = await db.Groups.SingleAsync(); var week = await db.Weeks.SingleAsync(); var word = await db.Words.SingleAsync(); var member = await db.Memberships.SingleAsync(); var reminder = await db.Reminders.SingleAsync(); var conversation = await db.Conversations.SingleAsync(); var courseMembership = await db.CourseMemberships.SingleAsync();
-            Assert.Equal(12345, user.TelegramId); Assert.Equal(course.Id, group.CourseId); Assert.Equal(user.Id, group.LeaderId); Assert.Equal(group.Id, member.GroupId); Assert.Equal(user.Id, member.UserId); Assert.Equal(course.Id, week.CourseId); Assert.Equal((course.Id, group.Id, week.Id, user.Id), (word.CourseId, word.GroupId, word.WeekId, word.UserId)); Assert.Equal((week.Id, group.Id, user.Id), (reminder.WeekId, reminder.GroupId, reminder.UserId)); Assert.Equal(user.Id, conversation.UserId); Assert.Equal((course.Id, user.Id), (courseMembership.CourseId, courseMembership.UserId)); db.ChangeTracker.Clear(); Assert.NotNull(await db.Users.FindAsync(user.Id)); Assert.NotNull(await db.Courses.FindAsync(course.Id));
+            var user = await db.Users.SingleAsync();
+            var course = await db.Courses.SingleAsync();
+            var conversation = await db.Conversations.SingleAsync();
+            var courseMembership = await db.CourseMemberships.SingleAsync();
+            Assert.Equal(12345, user.TelegramId);
+            Assert.Equal(user.Id, conversation.UserId);
+            Assert.Equal((course.Id, user.Id), (courseMembership.CourseId, courseMembership.UserId));
+            Assert.Equal("EXAMPLE", (await db.LegacyVocabularyTitles.SingleAsync()).NormalizedTitle);
+            Assert.Equal(1, await db.Database.SqlQueryRaw<int>("SELECT COUNT(*) AS Value FROM Words").SingleAsync());
+            db.ChangeTracker.Clear();
+            Assert.NotNull(await db.Users.FindAsync(user.Id));
+            Assert.NotNull(await db.Courses.FindAsync(course.Id));
         }
         finally { File.Delete(path); }
     }

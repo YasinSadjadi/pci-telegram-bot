@@ -5,6 +5,7 @@ using VocabularyBot.Application.Students.RegisterStudent;
 using VocabularyBot.Application.Courses;
 using VocabularyBot.Application.Workflows.AssignAdmin;
 using VocabularyBot.Application.Words.ListMyWords;
+using VocabularyBot.Application.Words;
 using VocabularyBot.Application.Workflows.RegisterWord;
 using VocabularyBot.Domain;
 using VocabularyBot.Domain.Words;
@@ -22,9 +23,10 @@ public sealed class BotService(IGenericRepository repository, IMediator mediator
         "کلمه یا عبارت انگلیسی را وارد کنید:",
         "تلفظ را وارد کنید:",
         "معنی فارسی را وارد کنید:",
-        "خانواده واژه را وارد کنید یا /skip بفرستید:",
+        "خانواده واژه را وارد کنید:",
         "مترادف‌ها را وارد کنید یا /skip بفرستید:",
-        "ترجمه به زبان‌های دیگر را وارد کنید (مثلاً آلمانی: ...، اسپانیایی: ...) یا /skip بفرستید:"
+        "ترجمه‌ها اختیاری‌اند. هر ترجمه را به شکل «زبان: ترجمه» بفرستید؛ مثلاً «آلمانی: Beispiel». می‌توانید چند خط بفرستید. برای پایان /done را ارسال کنید:"
+
     ];
 
     public async Task<string> Handle(long id, string? username, string name, string input)
@@ -73,10 +75,20 @@ public sealed class BotService(IGenericRepository repository, IMediator mediator
         if (input == "/word")
         {
             if (user.StudentNumber is null) return "ابتدا شماره دانشجویی خود را ثبت کنید: /register";
-            await StartFlow(user.Id, "word");
+            var memberships = await repository.Query<CourseMembership>(false).Where(m => m.UserId == user.Id).Select(m => m.CourseId).ToListAsync();
+            if (memberships.Count == 0) return "ابتدا با /join کلاس خود را انتخاب کنید.";
+            await StartFlow(user.Id, "word_v3");
+            if (memberships.Count == 1)
+            {
+                var wordState = await repository.Query<Conversation>().SingleAsync(c => c.UserId == user.Id);
+                wordState.Data = JsonSerializer.Serialize(new[] { memberships[0].ToString() });
+                wordState.Step = 1;
+                await repository.SaveChangesAsync();
+                return WordPrompts[1];
+            }
             return WordPrompts[0];
         }
-        if (input != "/skip" && System.Text.RegularExpressions.Regex.IsMatch(input, @"^/[A-Za-z_]+$")) return "دستور ناشناخته است. /help";
+        if (input is not ("/skip" or "/done") && System.Text.RegularExpressions.Regex.IsMatch(input, @"^/[A-Za-z_]+$")) return "دستور ناشناخته است. /help";
         var state = await repository.Query<Conversation>().FirstOrDefaultAsync(x => x.UserId == user.Id);
         if (state is null) return "برای شروع /help را بفرستید.";
         if (state.Flow == "register")
@@ -116,9 +128,39 @@ public sealed class BotService(IGenericRepository repository, IMediator mediator
             if (result.IsSuccessful) { await ClearFlow(user.Id); return result.Message; }
             return result.Message + "\nلطفاً مقدار این مرحله را دوباره وارد کنید یا /cancel را بفرستید.";
         }
-        if (state.Flow != "word") { await ClearFlow(user.Id); return "این عملیات دیگر پشتیبانی نمی‌شود. دوباره شروع کنید."; }
+        if (state.Flow is "word" or "word_v2") return "فرم قبلی تغییر کرده است. لطفاً برای شروع فرم جدید /word را بفرستید یا با /cancel آن را لغو کنید.";
+        if (state.Flow != "word_v3") { await ClearFlow(user.Id); return "این عملیات دیگر پشتیبانی نمی‌شود. دوباره شروع کنید."; }
         var values = JsonSerializer.Deserialize<List<string>>(state.Data) ?? [];
-        if (input == "/skip" && values.Count < 4) return "این فیلد اجباری است. لطفاً مقدار آن را وارد کنید.";
+        if (values.Count >= 6)
+        {
+            if (input == "/done")
+            {
+                var completed = await mediator.Send(new RegisterWordCommand(id, values));
+                if (completed.IsSuccessful) { await ClearFlow(user.Id); return completed.Message; }
+                return completed.Message + "\nمی‌توانید دوباره تلاش کنید یا با /cancel فرم را ببندید.";
+            }
+            if (input == "/skip") return "برای پایان ورود ترجمه‌ها /done را بفرستید.";
+            if (input.Length == 0 || input.Length > 2000) return "متن ترجمه باید بین ۱ تا ۲۰۰۰ نویسه باشد.";
+            var lines = input.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (lines.Length == 0) return "هر ترجمه را به شکل «زبان: ترجمه» وارد کنید.";
+            var parsed = new List<(string Language, string Meaning)>();
+            foreach (var line in lines)
+            {
+                if (!TranslationInput.TryParse(line, out var language, out var meaning)) return "قالب ترجمه معتبر نیست. هر خط را به شکل «زبان: ترجمه» وارد کنید؛ مثلاً «آلمانی: Beispiel».";
+                parsed.Add((language, meaning));
+            }
+            foreach (var item in parsed)
+            {
+                var index = values.FindIndex(6, line => TranslationInput.TryParse(line, out var previousLanguage, out _) && TranslationInput.NormalizeLanguage(previousLanguage) == TranslationInput.NormalizeLanguage(item.Language));
+                var line = $"{item.Language}: {item.Meaning}";
+                if (index < 0) values.Add(line); else values[index] = line;
+            }
+            state.Data = JsonSerializer.Serialize(values);
+            await repository.SaveChangesAsync();
+            return "ترجمه به فرم اضافه شد. زبان دیگری وارد کنید؛ برای اصلاح، همان زبان را دوباره بفرستید یا برای پایان /done را ارسال کنید.";
+        }
+        if (input == "/done") return "ابتدا فیلدهای اجباری و مرحله مترادف را تکمیل کنید.";
+        if (input == "/skip" && values.Count < 5) return "این فیلد اجباری است. لطفاً مقدار آن را وارد کنید.";
         if (input.Length == 0 || input.Length > 2000) return "متن واردشده باید بین ۱ تا ۲۰۰۰ نویسه باشد. لطفاً دوباره وارد کنید.";
         if (values.Count == 0)
         {
@@ -129,7 +171,7 @@ public sealed class BotService(IGenericRepository repository, IMediator mediator
         {
             var normalized = WordNormalizer.Normalize(input);
             if (await repository.Query<VocabularyEntry>().AnyAsync(x => x.NormalizedWord == normalized) ||
-                await repository.Query<Word>().AnyAsync(x => x.NormalizedTitle == normalized))
+                await repository.Query<LegacyVocabularyTitle>().AnyAsync(x => x.NormalizedTitle == normalized))
                 return "این واژه قبلاً ثبت شده است. لطفاً واژه دیگری وارد کنید یا /cancel را بفرستید.";
         }
         values.Add(input == "/skip" ? "" : input);
@@ -140,9 +182,7 @@ public sealed class BotService(IGenericRepository repository, IMediator mediator
             await repository.SaveChangesAsync();
             return WordPrompts[state.Step];
         }
-        var response = await mediator.Send(new RegisterWordCommand(id, values));
-        if (response.IsSuccessful) { await ClearFlow(user.Id); return response.Message; }
-        return response.Message + "\nمی‌توانید دوباره تلاش کنید یا با /cancel فرم را ببندید.";
+        return "برای پایان ثبت ترجمه‌ها /done را بفرستید.";
     }
 
     private async Task<string> ClassSelectionPrompt()
