@@ -18,6 +18,6 @@ public sealed class RegisterStudentHandler(IGenericRepository repository, ILogge
   if (await repository.Query<User>().AnyAsync(x => x.StudentNumber == number && x.Id != user.Id, ct)) return Result.Failure("این شماره دانشجویی قبلاً ثبت شده است.");
   user.StudentNumber = number;
   await repository.SaveChangesAsync(ct);
-  return Result.Success("ثبت‌نام دانشجویی انجام شد. با /word واژه ثبت کنید.");
+  return Result.Success("✅ ثبت‌نام دانشجویی انجام شد.");
  }
 }

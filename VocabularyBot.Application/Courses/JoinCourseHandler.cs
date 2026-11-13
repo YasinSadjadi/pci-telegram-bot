@@ -13,7 +13,7 @@ public sealed class JoinCourseHandler(IGenericRepository repository, ILoggerFact
         var user = await repository.Query<User>().FirstOrDefaultAsync(x => x.TelegramId == request.TelegramId, ct);
         if (user?.StudentNumber is null) return Result.Failure("ابتدا شماره دانشجویی خود را با /register ثبت کنید.");
         if (!Guid.TryParse(request.CourseId, out var courseId) || courseId == Guid.Empty || !await repository.Query<Course>().AnyAsync(x => x.Id == courseId, ct))
-            return Result.Failure("کلاس پیدا نشد. شناسه کامل یکی از کلاس‌های فهرست را کپی و ارسال کنید.");
+            return Result.Failure("کلاس پیدا نشد. یکی از دکمه‌های فهرست کلاس‌ها را انتخاب کنید.");
         if (await repository.Query<CourseMembership>().AnyAsync(x => x.CourseId == courseId && x.UserId == user.Id, ct))
             return Result.Success("شما از قبل عضو این کلاس هستید. برای ثبت واژه /word را بفرستید.");
         repository.Create(new CourseMembership { CourseId = courseId, UserId = user.Id });
