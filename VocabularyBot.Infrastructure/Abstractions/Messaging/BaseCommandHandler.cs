@@ -1,4 +1,3 @@
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using VocabularyBot.Infrastructure.Abstractions.Messaging.Interfaces;
 using VocabularyBot.Infrastructure.Abstractions.Results;
@@ -14,7 +13,7 @@ public abstract class BaseCommandHandler<TCommand>(ILoggerFactory loggerFactory)
     {
         try
         {
-            if (!await HasAccess(request, cancellationToken)) return Result.Failure("دسترسی ندارید.");
+            if (!await HasAccess(request, cancellationToken)) return Result.Failure(global::VocabularyBot.Infrastructure.Resources.Error.AccessDenied);
             return await Execute(request, cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -23,10 +22,18 @@ public abstract class BaseCommandHandler<TCommand>(ILoggerFactory loggerFactory)
         }
         catch (Exception ex)
         {
-            try { OnFailure(); }
-            catch (Exception cleanupException) { logger.LogError(cleanupException, "Failed to reset state after {Command}", typeof(TCommand).Name); }
+            try
+            {
+                OnFailure();
+            }
+            catch (Exception cleanupException)
+            {
+                logger.LogError(cleanupException, "Failed to reset state after {Command}", typeof(TCommand).Name);
+            }
+
             logger.LogError(ex, "Command {Command} failed", typeof(TCommand).Name);
-            return Result.Failure("متأسفانه انجام عملیات ممکن نشد. لطفاً دوباره تلاش کنید؛ اگر مشکل ادامه داشت با پشتیبانی تماس بگیرید.");
+            return Result.Failure(
+                global::VocabularyBot.Infrastructure.Resources.Error.OperationFailed);
         }
     }
 

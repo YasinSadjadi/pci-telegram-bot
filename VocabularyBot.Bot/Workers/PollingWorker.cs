@@ -29,7 +29,8 @@ public sealed class PollingWorker(IServiceScopeFactory scopes, TelegramClient te
                     }
                     else if (update.TryGetProperty("callback_query", out var callback))
                     {
-                        await telegram.Call("answerCallbackQuery", new { callback_query_id = callback.GetProperty("id").GetString() }, ct);
+                        await telegram.Call("answerCallbackQuery",
+                            new { callback_query_id = callback.GetProperty("id").GetString() }, ct);
                         if (callback.TryGetProperty("message", out var message) &&
                             message.GetProperty("chat").GetProperty("type").GetString() == "private" &&
                             callback.TryGetProperty("data", out var data))
@@ -41,7 +42,9 @@ public sealed class PollingWorker(IServiceScopeFactory scopes, TelegramClient te
                                 var input = data.GetString() ?? "";
                                 if (IsSupportedCallback(input))
                                     await Respond(id,
-                                        actor.TryGetProperty("username", out var username) ? username.GetString() : null,
+                                        actor.TryGetProperty("username", out var username)
+                                            ? username.GetString()
+                                            : null,
                                         actor.TryGetProperty("first_name", out var name) ? name.GetString() ?? "" : "",
                                         input, ct);
                             }
@@ -62,8 +65,10 @@ public sealed class PollingWorker(IServiceScopeFactory scopes, TelegramClient te
             }
     }
 
-    public static bool IsSupportedCallback(string input) =>
-        input.StartsWith("class:") || input.StartsWith("page:") || input.StartsWith("browse:");
+    public static bool IsSupportedCallback(string input)
+    {
+        return input.StartsWith("class:") || input.StartsWith("page:") || input.StartsWith("browse:");
+    }
 
     private async Task Respond(long id, string? username, string name, string input, CancellationToken ct)
     {

@@ -1,0 +1,60 @@
+<?xml version='1.0' encoding='utf-8'?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms</value>
+  </resheader>
+  <data name="Word" xml:space="preserve">
+    <value>✍️ ثبت واژه</value>
+  </data>
+  <data name="Words" xml:space="preserve">
+    <value>📚 واژه‌های من</value>
+  </data>
+  <data name="Classes" xml:space="preserve">
+    <value>🏫 کلاس‌های من</value>
+  </data>
+  <data name="Join" xml:space="preserve">
+    <value>➕ عضویت در کلاس</value>
+  </data>
+  <data name="Register" xml:space="preserve">
+    <value>👤 شماره دانشجویی</value>
+  </data>
+  <data name="Help" xml:space="preserve">
+    <value>❔ راهنما</value>
+  </data>
+  <data name="Course" xml:space="preserve">
+    <value>🏫 ساخت کلاس</value>
+  </data>
+  <data name="Admin" xml:space="preserve">
+    <value>🔑 افزودن ادمین</value>
+  </data>
+  <data name="Browse" xml:space="preserve">
+    <value>📋 مرور کلاس‌ها</value>
+  </data>
+  <data name="SkipFamily" xml:space="preserve">
+    <value>⏭ بدون خانواده واژه</value>
+  </data>
+  <data name="Back" xml:space="preserve">
+    <value>↩️ مرحله قبل</value>
+  </data>
+  <data name="Cancel" xml:space="preserve">
+    <value>✖️ لغو</value>
+  </data>
+  <data name="Skip" xml:space="preserve">
+    <value>⏭ بدون مترادف</value>
+  </data>
+  <data name="Done" xml:space="preserve">
+    <value>✅ ثبت واژه</value>
+  </data>
+  <data name="Home" xml:space="preserve">
+    <value>🏠 منوی اصلی</value>
+  </data>
+</root>

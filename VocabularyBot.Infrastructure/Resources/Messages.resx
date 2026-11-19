@@ -1,0 +1,330 @@
+<?xml version='1.0' encoding='utf-8'?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms</value>
+  </resheader>
+  <data name="KeyboardPlaceholder" xml:space="preserve">
+    <value>یک گزینه انتخاب کنید</value>
+  </data>
+  <data name="LanguageGerman" xml:space="preserve">
+    <value>آلمانی</value>
+  </data>
+  <data name="LanguageFrench" xml:space="preserve">
+    <value>فرانسوی</value>
+  </data>
+  <data name="LanguageSpanish" xml:space="preserve">
+    <value>اسپانیایی</value>
+  </data>
+  <data name="UserRoleAdmin" xml:space="preserve">
+    <value>ادمین</value>
+  </data>
+  <data name="UserRoleMember" xml:space="preserve">
+    <value>عضو</value>
+  </data>
+  <data name="CourseUniversityPrompt" xml:space="preserve">
+    <value>🏫 ساخت کلاس · مرحله ۱ از ۳
+
+نام دانشگاه را وارد کنید:</value>
+  </data>
+  <data name="CourseYearPrompt" xml:space="preserve">
+    <value>🏫 ساخت کلاس · مرحله ۲ از ۳
+
+سال ترم را وارد کنید؛ مثلاً ۱۴۰۵:</value>
+  </data>
+  <data name="CourseTermPrompt" xml:space="preserve">
+    <value>🏫 ساخت کلاس · مرحله ۳ از ۳
+
+شماره ترم را وارد کنید؛ مثلاً ۱:</value>
+  </data>
+  <data name="WordCoursePrompt" xml:space="preserve">
+    <value>🏫 انتخاب کلاس واژه
+
+واژه برای کدام کلاس ثبت شود؟ یکی از دکمه‌های زیر را انتخاب کنید.</value>
+  </data>
+  <data name="WordEnglishPrompt" xml:space="preserve">
+    <value>✍️ ثبت واژه · مرحله ۱ از ۶
+
+کلمه یا عبارت انگلیسی را وارد کنید.
+مثال: example</value>
+  </data>
+  <data name="WordPronunciationPrompt" xml:space="preserve">
+    <value>✍️ ثبت واژه · مرحله ۲ از ۶
+
+تلفظ را وارد کنید.
+مثال: /ɪɡˈzɑːmpəl/</value>
+  </data>
+  <data name="WordMeaningPrompt" xml:space="preserve">
+    <value>✍️ ثبت واژه · مرحله ۳ از ۶
+
+معنی فارسی را وارد کنید.
+مثال: نمونه، مثال</value>
+  </data>
+  <data name="WordFamilyPrompt" xml:space="preserve">
+    <value>✍️ ثبت واژه · مرحله ۴ از ۶
+
+خانواده واژه را وارد کنید.
+مثال: exemplify, exemplary
+
+اختیاری است؛ /skip یا دکمه «بدون خانواده واژه» را بفرستید.</value>
+  </data>
+  <data name="WordSynonymsPrompt" xml:space="preserve">
+    <value>✍️ ثبت واژه · مرحله ۵ از ۶
+
+مترادف‌ها را وارد کنید.
+مثال: instance, sample
+
+اختیاری است؛ دکمه «بدون مترادف» یا /skip را بفرستید.</value>
+  </data>
+  <data name="WordTranslationPrompt" xml:space="preserve">
+    <value>✍️ ثبت واژه · مرحله ۶ از ۶
+
+ترجمه به زبان دیگر (اختیاری)
+هر زبان را در یک خط بنویسید؛ مثلاً:
+آلمانی: Beispiel
+فرانسوی: exemple
+
+زبان‌های پشتیبانی‌شده: {0}
+
+برای ذخیره، دکمه «ثبت واژه» یا /done را بفرستید.</value>
+  </data>
+  <data name="HelpText" xml:space="preserve">
+    <value>📖 راهنمای واژه‌یار
+
+۱. شماره دانشجویی‌تان را ثبت کنید.
+۲. کلاس خود را انتخاب کنید.
+۳. واژه‌ها را با فرم مرحله‌ای ثبت کنید.
+
+می‌توانید از دکمه‌های پایین یا این دستورها استفاده کنید:
+/word — ثبت واژه
+/words — واژه‌های من
+/classes — کلاس‌های من
+/join — عضویت در کلاس
+/register — تغییر شماره دانشجویی
+
+داخل فرم:
+/back — اصلاح مرحله قبل
+/cancel — لغو فرم
+/menu — خروج از فرم و منوی اصلی</value>
+  </data>
+  <data name="AdminHelpText" xml:space="preserve">
+    <value>
+
+🔑 مدیریت
+/course — ساخت کلاس
+/admin — افزودن ادمین
+/browse — مرور کلاس‌ها و واژه‌ها</value>
+  </data>
+  <data name="BrowseCoursePrompt" xml:space="preserve">
+    <value>🏫 کلاس مورد نظر را انتخاب کنید.</value>
+  </data>
+  <data name="BrowseStudentPrompt" xml:space="preserve">
+    <value>👥 شماره دانشجویی یا همه واژه‌های کلاس را انتخاب کنید.</value>
+  </data>
+  <data name="BrowseWordsHeading" xml:space="preserve">
+    <value>📚 واژه‌ها · {0} واژه
+
+</value>
+  </data>
+  <data name="WelcomeRegistrationPrompt" xml:space="preserve">
+    <value>👋 به واژه‌یار خوش آمدید
+
+واژه‌های کلاس را اینجا ثبت و مرور کنید.
+برای شروع، شماره دانشجویی خود را وارد کنید.
+ارقام فارسی و انگلیسی پذیرفته می‌شوند.</value>
+  </data>
+  <data name="OperationCancelled" xml:space="preserve">
+    <value>عملیات لغو شد.
+
+</value>
+  </data>
+  <data name="StudentNumberPrompt" xml:space="preserve">
+    <value>👤 شماره دانشجویی
+
+شماره دانشجویی خود را وارد کنید.
+ارقام فارسی و انگلیسی پذیرفته می‌شوند.</value>
+  </data>
+  <data name="BrowseCourseHint" xml:space="preserve">
+    <value>
+
+برای دیدن دانشجویان و واژه‌ها، یک کلاس را انتخاب کنید.</value>
+  </data>
+  <data name="AdminIdentifierPrompt" xml:space="preserve">
+    <value>شناسه عددی تلگرام را وارد کنید؛ حتی اگر فرد ربات را شروع نکرده باشد. برای کاربران ثبت‌نام‌شده نام کاربری نیز پذیرفته می‌شود:</value>
+  </data>
+  <data name="RetryAdminIdentifier" xml:space="preserve">
+    <value>
+شناسه را دوباره وارد کنید یا /cancel را بفرستید.</value>
+  </data>
+  <data name="RetryCourseSelection" xml:space="preserve">
+    <value>
+برای دیدن دوباره فهرست /join را بفرستید یا با /cancel خارج شوید.</value>
+  </data>
+  <data name="RetryCurrentStep" xml:space="preserve">
+    <value>
+لطفاً مقدار این مرحله را دوباره وارد کنید یا /cancel را بفرستید.</value>
+  </data>
+  <data name="WordSavedSummary" xml:space="preserve">
+    <value>✅ واژه ثبت شد.
+
+{0}
+معنی فارسی: {1}
+
+از «واژه‌های من» مرور کنید یا یک واژه دیگر ثبت کنید.</value>
+  </data>
+  <data name="RetryWordForm" xml:space="preserve">
+    <value>
+می‌توانید دوباره تلاش کنید یا با /cancel فرم را ببندید.</value>
+  </data>
+  <data name="FinishTranslationsPrompt" xml:space="preserve">
+    <value>برای پایان ورود ترجمه‌ها /done را بفرستید.</value>
+  </data>
+  <data name="TranslationFormatPrompt" xml:space="preserve">
+    <value>هر ترجمه را به شکل «زبان: ترجمه» وارد کنید.</value>
+  </data>
+  <data name="TranslationAdded" xml:space="preserve">
+    <value>✓ ترجمه به فرم اضافه شد.
+
+</value>
+  </data>
+  <data name="TranslationSaveInstructions" xml:space="preserve">
+    <value>
+
+برای اصلاح، همان زبان را دوباره بفرستید.
+برای ذخیره نهایی، «ثبت واژه» یا /done را انتخاب کنید.</value>
+  </data>
+  <data name="FinishTranslationEntry" xml:space="preserve">
+    <value>برای پایان ثبت ترجمه‌ها /done را بفرستید.</value>
+  </data>
+  <data name="JoinCoursePrompt" xml:space="preserve">
+    <value>🏫 انتخاب کلاس
+
+دانشگاه و ترم خود را از دکمه‌های زیر انتخاب کنید.
+با انتخاب کلاس، عضویت شما ثبت می‌شود.</value>
+  </data>
+  <data name="HomeHeading" xml:space="preserve">
+    <value>🏠 واژه‌یار
+
+</value>
+  </data>
+  <data name="HomeRegistrationHint" xml:space="preserve">
+    <value>برای شروع، «شماره دانشجویی» را انتخاب کنید.</value>
+  </data>
+  <data name="HomeMenuHint" xml:space="preserve">
+    <value>برای ثبت واژه جدید یا مرور واژه‌ها، از منوی پایین انتخاب کنید.</value>
+  </data>
+  <data name="FirstWordStep" xml:space="preserve">
+    <value>در اولین مرحله هستید.
+
+</value>
+  </data>
+  <data name="ReenterWordDetails" xml:space="preserve">
+    <value>مترادف و ترجمه‌ها را دوباره وارد کنید.
+
+</value>
+  </data>
+  <data name="FirstStepCancelHint" xml:space="preserve">
+    <value>در اولین مرحله هستید. برای خروج، «لغو» یا /cancel را بفرستید.</value>
+  </data>
+  <data name="CourseButtonLabel" xml:space="preserve">
+    <value>{0} · {1} · ترم {2}</value>
+  </data>
+  <data name="PreviousPage" xml:space="preserve">
+    <value>◀ صفحه قبل</value>
+  </data>
+  <data name="NextPage" xml:space="preserve">
+    <value>صفحه بعد ▶</value>
+  </data>
+  <data name="AllCourseWords" xml:space="preserve">
+    <value>📚 همه واژه‌های کلاس</value>
+  </data>
+  <data name="CourseListButton" xml:space="preserve">
+    <value>↩️ فهرست کلاس‌ها</value>
+  </data>
+  <data name="StepInputPlaceholder" xml:space="preserve">
+    <value>پاسخ این مرحله را بنویسید…</value>
+  </data>
+  <data name="CourseCreated" xml:space="preserve">
+    <value>کلاس ثبت شد</value>
+  </data>
+  <data name="AlreadyCourseMember" xml:space="preserve">
+    <value>شما از قبل عضو این کلاس هستید. برای ثبت واژه /word را بفرستید.</value>
+  </data>
+  <data name="CourseJoined" xml:space="preserve">
+    <value>عضویت در کلاس انجام شد. برای ثبت واژه /word را بفرستید.</value>
+  </data>
+  <data name="EmptyCoursesList" xml:space="preserve">
+    <value>🏫 کلاس‌های من
+
+هنوز کلاسی برای نمایش وجود ندارد.
+از «عضویت در کلاس» یا /join کلاس خود را انتخاب کنید.</value>
+  </data>
+  <data name="AllCoursesTitle" xml:space="preserve">
+    <value>همه کلاس‌ها</value>
+  </data>
+  <data name="MyCoursesTitle" xml:space="preserve">
+    <value>کلاس‌های من</value>
+  </data>
+  <data name="CoursesListHeading" xml:space="preserve">
+    <value>🏫 {0} · {1} کلاس
+
+</value>
+  </data>
+  <data name="CourseListItem" xml:space="preserve">
+    <value>📍 {0}
+سال {1} · ترم {2}</value>
+  </data>
+  <data name="StudentRegistered" xml:space="preserve">
+    <value>✅ ثبت‌نام دانشجویی انجام شد.</value>
+  </data>
+  <data name="LanguageListSeparator" xml:space="preserve">
+    <value>، </value>
+  </data>
+  <data name="EmptyWordList" xml:space="preserve">
+    <value>📚 واژه‌های من
+
+هنوز واژه‌ای ثبت نکرده‌اید.
+با «ثبت واژه» یا /word اولین واژه‌تان را اضافه کنید.</value>
+  </data>
+  <data name="MyWordsHeading" xml:space="preserve">
+    <value>📚 واژه‌های من · {0} واژه
+
+</value>
+  </data>
+  <data name="PronunciationLabel" xml:space="preserve">
+    <value>تلفظ: {0}</value>
+  </data>
+  <data name="PersianMeaningLabel" xml:space="preserve">
+    <value>معنی فارسی: {0}</value>
+  </data>
+  <data name="WordFamilyLabel" xml:space="preserve">
+    <value>خانواده واژه</value>
+  </data>
+  <data name="SynonymsLabel" xml:space="preserve">
+    <value>مترادف</value>
+  </data>
+  <data name="AdminAssigned" xml:space="preserve">
+    <value>نقش ادمین ثبت شد.</value>
+  </data>
+  <data name="WordRegistered" xml:space="preserve">
+    <value>واژه ثبت شد.</value>
+  </data>
+  <data name="WordListSeparator" xml:space="preserve">
+    <value>
+
+────────────
+
+</value>
+  </data>
+  <data name="WordHeading" xml:space="preserve">
+    <value>📌 {0}</value>
+  </data>
+</root>

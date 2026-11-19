@@ -1,11 +1,12 @@
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
-using VocabularyBot.Application.Students.RegisterStudent;
 using VocabularyBot.Application.Courses;
-using VocabularyBot.Application.Workflows.AssignAdmin;
-using VocabularyBot.Application.Words.ListMyWords;
+using VocabularyBot.Application.Students.RegisterStudent;
 using VocabularyBot.Application.Words;
+using VocabularyBot.Application.Words.ListMyWords;
+using VocabularyBot.Application.Workflows.AssignAdmin;
 using VocabularyBot.Application.Workflows.RegisterWord;
 using VocabularyBot.Domain;
 using VocabularyBot.Domain.Words;
@@ -15,25 +16,32 @@ namespace VocabularyBot.Application.Conversations;
 
 public sealed class BotService(IGenericRepository repository, IMediator mediator, BotOptions options)
 {
-    private static string Help(bool admin) => "📖 راهنمای واژه‌یار\n\n۱. شماره دانشجویی‌تان را ثبت کنید.\n۲. کلاس خود را انتخاب کنید.\n۳. واژه‌ها را با فرم مرحله‌ای ثبت کنید.\n\nمی‌توانید از دکمه‌های پایین یا این دستورها استفاده کنید:\n/word — ثبت واژه\n/words — واژه‌های من\n/classes — کلاس‌های من\n/join — عضویت در کلاس\n/register — تغییر شماره دانشجویی\n\nداخل فرم:\n/back — اصلاح مرحله قبل\n/cancel — لغو فرم\n/menu — خروج از فرم و منوی اصلی" +
-        (admin ? "\n\n🔑 مدیریت\n/course — ساخت کلاس\n/admin — افزودن ادمین\n/browse — مرور کلاس‌ها و واژه‌ها" : "");
-    private static readonly string[] CoursePrompts =
+    private static string[] CoursePrompts =>
     [
-        "🏫 ساخت کلاس · مرحله ۱ از ۳\n\nنام دانشگاه را وارد کنید:",
-        "🏫 ساخت کلاس · مرحله ۲ از ۳\n\nسال ترم را وارد کنید؛ مثلاً ۱۴۰۵:",
-        "🏫 ساخت کلاس · مرحله ۳ از ۳\n\nشماره ترم را وارد کنید؛ مثلاً ۱:"
+        global::VocabularyBot.Infrastructure.Resources.Messages.CourseUniversityPrompt,
+        global::VocabularyBot.Infrastructure.Resources.Messages.CourseYearPrompt,
+        global::VocabularyBot.Infrastructure.Resources.Messages.CourseTermPrompt
     ];
-    private static readonly string[] WordPrompts =
-    [
-        "🏫 انتخاب کلاس واژه\n\nواژه برای کدام کلاس ثبت شود؟ یکی از دکمه‌های زیر را انتخاب کنید.",
-        "✍️ ثبت واژه · مرحله ۱ از ۶\n\nکلمه یا عبارت انگلیسی را وارد کنید.\nمثال: example",
-        "✍️ ثبت واژه · مرحله ۲ از ۶\n\nتلفظ را وارد کنید.\nمثال: /ɪɡˈzɑːmpəl/",
-        "✍️ ثبت واژه · مرحله ۳ از ۶\n\nمعنی فارسی را وارد کنید.\nمثال: نمونه، مثال",
-        "✍️ ثبت واژه · مرحله ۴ از ۶\n\nخانواده واژه را وارد کنید.\nمثال: exemplify, exemplary\n\nاختیاری است؛ /skip یا دکمه «بدون خانواده واژه» را بفرستید.",
-        "✍️ ثبت واژه · مرحله ۵ از ۶\n\nمترادف‌ها را وارد کنید.\nمثال: instance, sample\n\nاختیاری است؛ دکمه «بدون مترادف» یا /skip را بفرستید.",
-        $"✍️ ثبت واژه · مرحله ۶ از ۶\n\nترجمه به زبان دیگر (اختیاری)\nهر زبان را در یک خط بنویسید؛ مثلاً:\nآلمانی: Beispiel\nفرانسوی: exemple\n\nزبان‌های پشتیبانی‌شده: {TranslationInput.SupportedLanguages}\n\nبرای ذخیره، دکمه «ثبت واژه» یا /done را بفرستید."
 
+    private static string[] WordPrompts =>
+    [
+        global::VocabularyBot.Infrastructure.Resources.Messages.WordCoursePrompt,
+        global::VocabularyBot.Infrastructure.Resources.Messages.WordEnglishPrompt,
+        global::VocabularyBot.Infrastructure.Resources.Messages.WordPronunciationPrompt,
+        global::VocabularyBot.Infrastructure.Resources.Messages.WordMeaningPrompt,
+        global::VocabularyBot.Infrastructure.Resources.Messages.WordFamilyPrompt,
+        global::VocabularyBot.Infrastructure.Resources.Messages.WordSynonymsPrompt,
+        string.Format(global::VocabularyBot.Infrastructure.Resources.Messages.WordTranslationPrompt, TranslationInput.SupportedLanguages)
     ];
+
+    private static string Help(bool admin)
+    {
+        return
+            global::VocabularyBot.Infrastructure.Resources.Messages.HelpText +
+            (admin
+                ? global::VocabularyBot.Infrastructure.Resources.Messages.AdminHelpText
+                : "");
+    }
 
     public async Task<string> Handle(long id, string? username, string name, string input)
     {
@@ -41,102 +49,169 @@ public sealed class BotService(IGenericRepository repository, IMediator mediator
         var user = await repository.Query<User>().FirstOrDefaultAsync(x => x.TelegramId == id);
         if (input.StartsWith("browse:"))
         {
-            var browseState = user is null ? null : await repository.Query<Conversation>().FirstOrDefaultAsync(x => x.UserId == user.Id);
+            var browseState = user is null
+                ? null
+                : await repository.Query<Conversation>().FirstOrDefaultAsync(x => x.UserId == user.Id);
             var parts = input.Split(':');
-            if (user is null || browseState?.Flow != "browse" || parts.Length != 4 || parts[1] != SelectionKey(browseState)) return "این انتخاب دیگر فعال نیست. /browse";
-            if (parts[2] == "page") return browseState.Step == 0 ? "🏫 کلاس مورد نظر را انتخاب کنید." : "👥 شماره دانشجویی یا همه واژه‌های کلاس را انتخاب کنید.";
-            if (parts[2] == "classes") { browseState.Step = 0; browseState.Data = "[]"; await repository.SaveChangesAsync(); return "🏫 کلاس مورد نظر را انتخاب کنید."; }
-            if (parts[2] == "course" && browseState.Step == 0 && Guid.TryParse(parts[3], out var courseId) && await CanBrowseCourse(user, courseId))
-            { browseState.Step = 1; browseState.Data = JsonSerializer.Serialize(new[] { courseId.ToString() }); await repository.SaveChangesAsync(); return "👥 شماره دانشجویی یا همه واژه‌های کلاس را انتخاب کنید."; }
+            if (user is null || browseState?.Flow != "browse" || parts.Length != 4 ||
+                parts[1] != SelectionKey(browseState)) return global::VocabularyBot.Infrastructure.Resources.Error.ExpiredBrowseSelection;
+            if (parts[2] == "page")
+                return browseState.Step == 0
+                    ? global::VocabularyBot.Infrastructure.Resources.Messages.BrowseCoursePrompt
+                    : global::VocabularyBot.Infrastructure.Resources.Messages.BrowseStudentPrompt;
+            if (parts[2] == "classes")
+            {
+                browseState.Step = 0;
+                browseState.Data = "[]";
+                await repository.SaveChangesAsync();
+                return global::VocabularyBot.Infrastructure.Resources.Messages.BrowseCoursePrompt;
+            }
+
+            if (parts[2] == "course" && browseState.Step == 0 && Guid.TryParse(parts[3], out var courseId) &&
+                await CanBrowseCourse(user, courseId))
+            {
+                browseState.Step = 1;
+                browseState.Data = JsonSerializer.Serialize(new[] { courseId.ToString() });
+                await repository.SaveChangesAsync();
+                return global::VocabularyBot.Infrastructure.Resources.Messages.BrowseStudentPrompt;
+            }
+
             if (browseState.Step == 1 && (parts[2] == "student" || parts[2] == "all"))
             {
                 var data = JsonSerializer.Deserialize<List<string>>(browseState.Data) ?? [];
-                if (data.Count != 1 || !Guid.TryParse(data[0], out var selectedId) || !await CanBrowseCourse(user, selectedId)) return "انتخاب کلاس معتبر نیست.";
+                if (data.Count != 1 || !Guid.TryParse(data[0], out var selectedId) ||
+                    !await CanBrowseCourse(user, selectedId)) return global::VocabularyBot.Infrastructure.Resources.Error.InvalidBrowseCourse;
                 Guid studentId = default;
-                if (parts[2] == "student" && (!Guid.TryParse(parts[3], out studentId) || !await repository.Query<CourseMembership>().AnyAsync(m => m.CourseId == selectedId && m.UserId == studentId))) return "دانشجوی این کلاس پیدا نشد.";
+                if (parts[2] == "student" && (!Guid.TryParse(parts[3], out studentId) || !await repository
+                        .Query<CourseMembership>()
+                        .AnyAsync(m => m.CourseId == selectedId && m.UserId == studentId)))
+                    return global::VocabularyBot.Infrastructure.Resources.Error.CourseStudentNotFound;
                 var query = repository.Query<VocabularyEntry>(false).Where(w => w.CourseId == selectedId);
                 if (parts[2] == "student") query = query.Where(w => w.UserId == studentId);
                 var words = await query.OrderBy(w => w.EnglishWord).ToListAsync();
-                if (words.Count == 0) return "هنوز واژه‌ای برای این انتخاب ثبت نشده است.";
+                if (words.Count == 0) return global::VocabularyBot.Infrastructure.Resources.Error.SelectedWordsNotFound;
                 var ids = words.Select(w => w.Id).ToArray();
-                var translations = await repository.Query<WordTranslation>(false).Where(t => ids.Contains(t.VocabularyEntryId)).OrderBy(t => t.Type).ToListAsync();
+                var translations = await repository.Query<WordTranslation>(false)
+                    .Where(t => ids.Contains(t.VocabularyEntryId)).OrderBy(t => t.Type).ToListAsync();
                 var lookup = translations.ToLookup(t => t.VocabularyEntryId);
-                return $"📚 واژه‌ها · {words.Count} واژه\n\n" + string.Join("\n\n────────────\n\n", words.Select(w => ListMyWordsHandler.Format(w, lookup[w.Id])));
+                return string.Format(global::VocabularyBot.Infrastructure.Resources.Messages.BrowseWordsHeading, words.Count) + string.Join(global::VocabularyBot.Infrastructure.Resources.Messages.WordListSeparator,
+                    words.Select(w => ListMyWordsHandler.Format(w, lookup[w.Id])));
             }
-            return "این انتخاب معتبر نیست. /browse";
+
+            return global::VocabularyBot.Infrastructure.Resources.Error.InvalidBrowseSelection;
         }
+
         if (input.StartsWith("class:") || input.StartsWith("page:"))
         {
-            var current = user is null ? null : await repository.Query<Conversation>().FirstOrDefaultAsync(x => x.UserId == user.Id);
+            var current = user is null
+                ? null
+                : await repository.Query<Conversation>().FirstOrDefaultAsync(x => x.UserId == user.Id);
             var parts = input.Split(':');
             if (current is null || parts.Length != 3 || parts[1] != SelectionKey(current) ||
-                !(current.Flow == "select_class" || current.Flow == "word" && current.Step == 0))
-                return "این انتخاب دیگر فعال نیست. برای انتخاب کلاس /join یا برای ثبت واژه /word را بفرستید.";
+                !(current.Flow == "select_class" || (current.Flow == "word" && current.Step == 0)))
+                return global::VocabularyBot.Infrastructure.Resources.Error.ExpiredCourseSelection;
             if (parts[0] == "page") return current.Flow == "word" ? WordPrompts[0] : await ClassSelectionPrompt();
             input = parts[2] == "cancel" ? "/cancel" : parts[2];
         }
+
         if (input == "/start")
         {
-            if (user is null) { user = new User { TelegramId = id }; repository.Create(user); }
+            if (user is null)
+            {
+                user = new User { TelegramId = id };
+                repository.Create(user);
+            }
+
             user.Name = name;
             user.Username = username;
             if (id == options.BootstrapAdminId ||
                 (!string.IsNullOrWhiteSpace(username) && !string.IsNullOrWhiteSpace(options.BootstrapAdminUsername) &&
-                 string.Equals(username.TrimStart('@'), options.BootstrapAdminUsername.Trim().TrimStart('@'), StringComparison.OrdinalIgnoreCase) &&
+                 string.Equals(username.TrimStart('@'), options.BootstrapAdminUsername.Trim().TrimStart('@'),
+                     StringComparison.OrdinalIgnoreCase) &&
                  !await repository.Query<User>().AnyAsync(x => x.IsAdmin)))
                 user.IsAdmin = true;
             await repository.SaveChangesAsync();
-            if (user.StudentNumber is null && !user.IsAdmin) { await StartFlow(user.Id, "register"); return "👋 به واژه‌یار خوش آمدید\n\nواژه‌های کلاس را اینجا ثبت و مرور کنید.\nبرای شروع، شماره دانشجویی خود را وارد کنید.\nارقام فارسی و انگلیسی پذیرفته می‌شوند."; }
+            if (user.StudentNumber is null && !user.IsAdmin)
+            {
+                await StartFlow(user.Id, "register");
+                return
+                    global::VocabularyBot.Infrastructure.Resources.Messages.WelcomeRegistrationPrompt;
+            }
+
             if (!await repository.Query<CourseMembership>().AnyAsync(m => m.UserId == user.Id) && !user.IsAdmin)
             {
                 await StartFlow(user.Id, "select_class");
                 return await ClassSelectionPrompt();
             }
+
             await ClearFlow(user.Id);
             return Home(user);
         }
-        if (user is null) return "ابتدا /start را ارسال کنید.";
-        if (input == "/cancel") { await ClearFlow(user.Id); return "عملیات لغو شد.\n\n" + Home(user); }
-        if (input == "/menu") { await ClearFlow(user.Id); return Home(user); }
+
+        if (user is null) return global::VocabularyBot.Infrastructure.Resources.Error.StartRequired;
+        if (input == "/cancel")
+        {
+            await ClearFlow(user.Id);
+            return global::VocabularyBot.Infrastructure.Resources.Messages.OperationCancelled + Home(user);
+        }
+
+        if (input == "/menu")
+        {
+            await ClearFlow(user.Id);
+            return Home(user);
+        }
+
         if (input == "/help") return Help(user.IsAdmin);
         if (input == "/back") return await Back(user);
-        if (input == "/register") { await StartFlow(user.Id, "register"); return "👤 شماره دانشجویی\n\nشماره دانشجویی خود را وارد کنید.\nارقام فارسی و انگلیسی پذیرفته می‌شوند."; }
+        if (input == "/register")
+        {
+            await StartFlow(user.Id, "register");
+            return global::VocabularyBot.Infrastructure.Resources.Messages.StudentNumberPrompt;
+        }
+
         if (input == "/classes")
         {
             var description = await mediator.Send(new ListCoursesQuery(id));
             await StartFlow(user.Id, "browse");
-            return description + "\n\nبرای دیدن دانشجویان و واژه‌ها، یک کلاس را انتخاب کنید.";
+            return description + global::VocabularyBot.Infrastructure.Resources.Messages.BrowseCourseHint;
         }
+
         if (input == "/join")
         {
-            if (user.StudentNumber is null) return "ابتدا شماره دانشجویی خود را با /register ثبت کنید.";
+            if (user.StudentNumber is null) return global::VocabularyBot.Infrastructure.Resources.Error.StudentRegistrationRequired;
             await StartFlow(user.Id, "select_class");
             return await ClassSelectionPrompt();
         }
+
         if (input == "/browse")
         {
-            if (!user.IsAdmin) return "این دستور مخصوص ادمین است.";
+            if (!user.IsAdmin) return global::VocabularyBot.Infrastructure.Resources.Error.AdminCommandRequired;
             await StartFlow(user.Id, "browse");
-            return "🏫 کلاس مورد نظر را انتخاب کنید.";
+            return global::VocabularyBot.Infrastructure.Resources.Messages.BrowseCoursePrompt;
         }
+
         if (input == "/admin")
         {
-            if (!user.IsAdmin) return "این دستور مخصوص ادمین است. برای دسترسی با ادمین هماهنگ کنید.";
+            if (!user.IsAdmin) return global::VocabularyBot.Infrastructure.Resources.Error.AdminAccessRequired;
             await StartFlow(user.Id, "admin");
-            return "شناسه عددی تلگرام را وارد کنید؛ حتی اگر فرد ربات را شروع نکرده باشد. برای کاربران ثبت‌نام‌شده نام کاربری نیز پذیرفته می‌شود:";
+            return
+                global::VocabularyBot.Infrastructure.Resources.Messages.AdminIdentifierPrompt;
         }
+
         if (input == "/course")
         {
-            if (!user.IsAdmin) return "این دستور مخصوص ادمین است. برای دسترسی با ادمین هماهنگ کنید.";
+            if (!user.IsAdmin) return global::VocabularyBot.Infrastructure.Resources.Error.AdminAccessRequired;
             await StartFlow(user.Id, "course");
             return CoursePrompts[0];
         }
+
         if (input == "/words") return await mediator.Send(new ListMyWordsQuery(id));
         if (input == "/word")
         {
-            if (user.StudentNumber is null) return "ابتدا شماره دانشجویی خود را ثبت کنید: /register";
-            var memberships = await repository.Query<CourseMembership>(false).Where(m => m.UserId == user.Id).Select(m => m.CourseId).ToListAsync();
-            if (memberships.Count == 0) return "ابتدا با /join کلاس خود را انتخاب کنید.";
+            if (user.StudentNumber is null) return global::VocabularyBot.Infrastructure.Resources.Error.StudentRegistrationPromptRequired;
+            var memberships = await repository.Query<CourseMembership>(false).Where(m => m.UserId == user.Id)
+                .Select(m => m.CourseId).ToListAsync();
+            if (memberships.Count == 0) return global::VocabularyBot.Infrastructure.Resources.Error.CourseMembershipRequired;
             await StartFlow(user.Id, "word");
             if (memberships.Count == 1)
             {
@@ -146,9 +221,12 @@ public sealed class BotService(IGenericRepository repository, IMediator mediator
                 await repository.SaveChangesAsync();
                 return WordPrompts[1];
             }
+
             return WordPrompts[0];
         }
-        if (input is not ("/skip" or "/done") && System.Text.RegularExpressions.Regex.IsMatch(input, @"^/[A-Za-z_]+$")) return "دستور ناشناخته است. /help";
+
+        if (input is not ("/skip" or "/done") && Regex.IsMatch(input, @"^/[A-Za-z_]+$"))
+            return global::VocabularyBot.Infrastructure.Resources.Error.UnknownCommand;
         var state = await repository.Query<Conversation>().FirstOrDefaultAsync(x => x.UserId == user.Id);
         if (state is null) return Home(user);
         if (state.Flow == "register")
@@ -158,80 +236,141 @@ public sealed class BotService(IGenericRepository repository, IMediator mediator
             await StartFlow(user.Id, "select_class");
             return result.Message + "\n" + await ClassSelectionPrompt();
         }
+
         if (state.Flow == "admin")
         {
-            if (!user.IsAdmin) { await ClearFlow(user.Id); return "این دستور مخصوص ادمین است."; }
+            if (!user.IsAdmin)
+            {
+                await ClearFlow(user.Id);
+                return global::VocabularyBot.Infrastructure.Resources.Error.AdminCommandRequired;
+            }
+
             var result = await mediator.Send(new AssignAdminCommand(id, [input]));
-            if (result.IsSuccessful) { await ClearFlow(user.Id); return result.Message; }
-            return result.Message + "\nشناسه را دوباره وارد کنید یا /cancel را بفرستید.";
+            if (result.IsSuccessful)
+            {
+                await ClearFlow(user.Id);
+                return result.Message;
+            }
+
+            return result.Message + global::VocabularyBot.Infrastructure.Resources.Messages.RetryAdminIdentifier;
         }
+
         if (state.Flow == "select_class")
         {
             var result = await mediator.Send(new JoinCourseCommand(id, input));
-            if (result.IsSuccessful) { await ClearFlow(user.Id); return result.Message; }
-            return result.Message + "\nبرای دیدن دوباره فهرست /join را بفرستید یا با /cancel خارج شوید.";
+            if (result.IsSuccessful)
+            {
+                await ClearFlow(user.Id);
+                return result.Message;
+            }
+
+            return result.Message + global::VocabularyBot.Infrastructure.Resources.Messages.RetryCourseSelection;
         }
+
         if (state.Flow == "course")
         {
-            if (!user.IsAdmin) { await ClearFlow(user.Id); return "این دستور مخصوص ادمین است."; }
+            if (!user.IsAdmin)
+            {
+                await ClearFlow(user.Id);
+                return global::VocabularyBot.Infrastructure.Resources.Error.AdminCommandRequired;
+            }
+
             var fields = JsonSerializer.Deserialize<List<string>>(state.Data) ?? [];
-            if (string.IsNullOrWhiteSpace(input) || input.Length > 2000 || input is "/skip" or "/done") return "این فیلد اجباری است. لطفاً مقدار معتبر وارد کنید.";
+            if (string.IsNullOrWhiteSpace(input) || input.Length > 2000 || input is "/skip" or "/done")
+                return global::VocabularyBot.Infrastructure.Resources.Error.RequiredFieldInvalid;
             if (fields.Count > 0)
             {
-                var digits = Digits.Convert(input);
-                if (!int.TryParse(digits, out var value) || value <= 0) return "این مقدار باید عدد مثبت باشد. لطفاً دوباره وارد کنید.";
+                var digits = Digits.ToAscii(input);
+                if (!int.TryParse(digits, out var value) || value <= 0)
+                    return global::VocabularyBot.Infrastructure.Resources.Error.PositiveNumberRequired;
             }
-            if (fields.Count == 0 && input.Length > 200) return "نام دانشگاه نباید بیش از ۲۰۰ نویسه باشد. لطفاً نام کوتاه‌تری وارد کنید.";
+
+            if (fields.Count == 0 && input.Length > 200)
+                return global::VocabularyBot.Infrastructure.Resources.Error.UniversityNameTooLong;
             fields.Add(input);
-            if (fields.Count < CoursePrompts.Length) { state.Data = JsonSerializer.Serialize(fields); state.Step = fields.Count; await repository.SaveChangesAsync(); return CoursePrompts[state.Step]; }
+            if (fields.Count < CoursePrompts.Length)
+            {
+                state.Data = JsonSerializer.Serialize(fields);
+                state.Step = fields.Count;
+                await repository.SaveChangesAsync();
+                return CoursePrompts[state.Step];
+            }
+
             var result = await mediator.Send(new CreateCourseCommand(id, fields[0], fields[1], fields[2]));
-            if (result.IsSuccessful) { await ClearFlow(user.Id); return result.Message; }
-            return result.Message + "\nلطفاً مقدار این مرحله را دوباره وارد کنید یا /cancel را بفرستید.";
+            if (result.IsSuccessful)
+            {
+                await ClearFlow(user.Id);
+                return result.Message;
+            }
+
+            return result.Message + global::VocabularyBot.Infrastructure.Resources.Messages.RetryCurrentStep;
         }
-        if (state.Flow != "word") { await ClearFlow(user.Id); return "این عملیات دیگر پشتیبانی نمی‌شود. دوباره شروع کنید."; }
+
+        if (state.Flow != "word")
+        {
+            await ClearFlow(user.Id);
+            return global::VocabularyBot.Infrastructure.Resources.Error.UnsupportedOperation;
+        }
+
         var values = JsonSerializer.Deserialize<List<string>>(state.Data) ?? [];
         if (values.Count >= 6)
         {
             if (input == "/done")
             {
                 var completed = await mediator.Send(new RegisterWordCommand(id, values));
-                if (completed.IsSuccessful) { await ClearFlow(user.Id); return $"✅ واژه ثبت شد.\n\n{values[1]}\nمعنی فارسی: {values[3]}\n\nاز «واژه‌های من» مرور کنید یا یک واژه دیگر ثبت کنید."; }
-                return completed.Message + "\nمی‌توانید دوباره تلاش کنید یا با /cancel فرم را ببندید.";
+                if (completed.IsSuccessful)
+                {
+                    await ClearFlow(user.Id);
+                    return
+                        string.Format(global::VocabularyBot.Infrastructure.Resources.Messages.WordSavedSummary, values[1], values[3]);
+                }
+
+                return completed.Message + global::VocabularyBot.Infrastructure.Resources.Messages.RetryWordForm;
             }
-            if (input == "/skip") return "برای پایان ورود ترجمه‌ها /done را بفرستید.";
-            if (input.Length == 0 || input.Length > 2000) return "متن ترجمه باید بین ۱ تا ۲۰۰۰ نویسه باشد.";
+
+            if (input == "/skip") return global::VocabularyBot.Infrastructure.Resources.Messages.FinishTranslationsPrompt;
+            if (input.Length == 0 || input.Length > 2000) return global::VocabularyBot.Infrastructure.Resources.Error.TranslationLengthInvalid;
             var lines = input.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            if (lines.Length == 0) return "هر ترجمه را به شکل «زبان: ترجمه» وارد کنید.";
+            if (lines.Length == 0) return global::VocabularyBot.Infrastructure.Resources.Messages.TranslationFormatPrompt;
             var parsed = new List<(LanguageType Type, string Meaning)>();
             foreach (var line in lines)
             {
-                if (!TranslationInput.TryParse(line, out var type, out var meaning)) return $"زبان یا قالب ترجمه معتبر نیست. به شکل «آلمانی: Beispiel» وارد کنید. زبان‌های پشتیبانی‌شده: {TranslationInput.SupportedLanguages}.";
+                if (!TranslationInput.TryParse(line, out var type, out var meaning))
+                    return
+                        string.Format(global::VocabularyBot.Infrastructure.Resources.Error.InvalidSupportedTranslation, TranslationInput.SupportedLanguages);
                 parsed.Add((type, meaning));
             }
+
             foreach (var item in parsed)
             {
-                var index = values.FindIndex(6, line => TranslationInput.TryParse(line, out var previousType, out _) && previousType == item.Type);
+                var index = values.FindIndex(6,
+                    line => TranslationInput.TryParse(line, out var previousType, out _) && previousType == item.Type);
                 var line = $"{TranslationInput.Name(item.Type)}: {item.Meaning}";
-                if (index < 0) values.Add(line); else values[index] = line;
+                if (index < 0) values.Add(line);
+                else values[index] = line;
             }
+
             state.Data = JsonSerializer.Serialize(values);
             await repository.SaveChangesAsync();
-            return "✓ ترجمه به فرم اضافه شد.\n\n" + string.Join("\n", values.Skip(6)) + "\n\nبرای اصلاح، همان زبان را دوباره بفرستید.\nبرای ذخیره نهایی، «ثبت واژه» یا /done را انتخاب کنید.";
+            return global::VocabularyBot.Infrastructure.Resources.Messages.TranslationAdded + string.Join("\n", values.Skip(6)) +
+                   global::VocabularyBot.Infrastructure.Resources.Messages.TranslationSaveInstructions;
         }
-        if (input == "/done") return "ابتدا فیلدهای اجباری و مرحله مترادف را تکمیل کنید.";
-        if (input == "/skip" && values.Count < 4) return "این فیلد اجباری است. لطفاً مقدار آن را وارد کنید.";
-        if (input.Length == 0 || input.Length > 2000) return "متن واردشده باید بین ۱ تا ۲۰۰۰ نویسه باشد. لطفاً دوباره وارد کنید.";
+
+        if (input == "/done") return global::VocabularyBot.Infrastructure.Resources.Error.WordFormIncomplete;
+        if (input == "/skip" && values.Count < 4) return global::VocabularyBot.Infrastructure.Resources.Error.RequiredFieldMissing;
+        if (input.Length == 0 || input.Length > 2000)
+            return global::VocabularyBot.Infrastructure.Resources.Error.InputLengthInvalid;
         if (values.Count == 0)
-        {
-            if (!Guid.TryParse(input, out var courseId) || !await repository.Query<CourseMembership>().AnyAsync(m => m.CourseId == courseId && m.UserId == user.Id))
-                return "کلاس معتبر نیست یا شما عضو آن نیستید. یکی از دکمه‌های کلاس را انتخاب کنید.";
-        }
+            if (!Guid.TryParse(input, out var courseId) || !await repository.Query<CourseMembership>()
+                    .AnyAsync(m => m.CourseId == courseId && m.UserId == user.Id))
+                return global::VocabularyBot.Infrastructure.Resources.Error.InvalidCourseMembership;
         if (values.Count == 1 && input != "/skip")
         {
             var normalized = WordNormalizer.Normalize(input);
             if (await repository.Query<VocabularyEntry>().AnyAsync(x => x.NormalizedWord == normalized))
-                return "این واژه قبلاً ثبت شده است. لطفاً واژه دیگری وارد کنید یا /cancel را بفرستید.";
+                return global::VocabularyBot.Infrastructure.Resources.Error.DuplicateWordRetry;
         }
+
         values.Add(input == "/skip" ? "" : input);
         if (values.Count < WordPrompts.Length)
         {
@@ -240,24 +379,37 @@ public sealed class BotService(IGenericRepository repository, IMediator mediator
             await repository.SaveChangesAsync();
             return WordPrompts[state.Step];
         }
-        return "برای پایان ثبت ترجمه‌ها /done را بفرستید.";
+
+        return global::VocabularyBot.Infrastructure.Resources.Messages.FinishTranslationEntry;
     }
 
-    private async Task<bool> CanBrowseCourse(User user, Guid courseId) =>
-        await repository.Query<Course>(false).AnyAsync(c => c.Id == courseId) &&
-        (user.IsAdmin || await repository.Query<CourseMembership>(false).AnyAsync(m => m.CourseId == courseId && m.UserId == user.Id));
+    private async Task<bool> CanBrowseCourse(User user, Guid courseId)
+    {
+        return await repository.Query<Course>(false).AnyAsync(c => c.Id == courseId) &&
+               (user.IsAdmin || await repository.Query<CourseMembership>(false)
+                   .AnyAsync(m => m.CourseId == courseId && m.UserId == user.Id));
+    }
 
     private async Task<string> ClassSelectionPrompt()
     {
-        if (!await repository.Query<Course>(false).AnyAsync()) return "هنوز کلاسی ایجاد نشده است. پس از ایجاد کلاس توسط ادمین، /join را بفرستید.";
-        return "🏫 انتخاب کلاس\n\nدانشگاه و ترم خود را از دکمه‌های زیر انتخاب کنید.\nبا انتخاب کلاس، عضویت شما ثبت می‌شود.";
+        if (!await repository.Query<Course>(false).AnyAsync())
+            return global::VocabularyBot.Infrastructure.Resources.Error.NoCoursesAvailable;
+        return
+            global::VocabularyBot.Infrastructure.Resources.Messages.JoinCoursePrompt;
     }
 
-    private static string Home(User user) => "🏠 واژه‌یار\n\n" +
-        (user.StudentNumber is null ? "برای شروع، «شماره دانشجویی» را انتخاب کنید." : "برای ثبت واژه جدید یا مرور واژه‌ها، از منوی پایین انتخاب کنید.");
+    private static string Home(User user)
+    {
+        return global::VocabularyBot.Infrastructure.Resources.Messages.HomeHeading +
+               (user.StudentNumber is null
+                   ? global::VocabularyBot.Infrastructure.Resources.Messages.HomeRegistrationHint
+                   : global::VocabularyBot.Infrastructure.Resources.Messages.HomeMenuHint);
+    }
 
-    private static string SelectionKey(Conversation state) =>
-        (state.Flow == "word" ? "w" : state.Flow == "browse" ? "b" : "j") + state.Id.ToString("N")[..8];
+    private static string SelectionKey(Conversation state)
+    {
+        return (state.Flow == "word" ? "w" : state.Flow == "browse" ? "b" : "j") + state.Id.ToString("N")[..8];
+    }
 
     private async Task<string> Back(User user)
     {
@@ -272,18 +424,21 @@ public sealed class BotService(IGenericRepository repository, IMediator mediator
             await repository.SaveChangesAsync();
             return CoursePrompts[state.Step];
         }
+
         if (state.Flow == "word" && values.Count > 0)
         {
-            if (values.Count == 1 && await repository.Query<CourseMembership>().CountAsync(m => m.UserId == user.Id) <= 1)
-                return "در اولین مرحله هستید.\n\n" + WordPrompts[1];
+            if (values.Count == 1 &&
+                await repository.Query<CourseMembership>().CountAsync(m => m.UserId == user.Id) <= 1)
+                return global::VocabularyBot.Infrastructure.Resources.Messages.FirstWordStep + WordPrompts[1];
             var previous = Math.Min(values.Count - 1, 5);
             values.RemoveRange(previous, values.Count - previous);
             state.Step = values.Count;
             state.Data = JsonSerializer.Serialize(values);
             await repository.SaveChangesAsync();
-            return (previous == 5 ? "مترادف و ترجمه‌ها را دوباره وارد کنید.\n\n" : "") + WordPrompts[state.Step];
+            return (previous == 5 ? global::VocabularyBot.Infrastructure.Resources.Messages.ReenterWordDetails : "") + WordPrompts[state.Step];
         }
-        return "در اولین مرحله هستید. برای خروج، «لغو» یا /cancel را بفرستید.";
+
+        return global::VocabularyBot.Infrastructure.Resources.Messages.FirstStepCancelHint;
     }
 
     public async Task<BotKeyboard> Keyboard(long telegramId, string input)
@@ -297,78 +452,121 @@ public sealed class BotService(IGenericRepository repository, IMediator mediator
             {
                 const int pageSize = 8;
                 var parts = input.Split(':');
-                var page = parts.Length == 4 && parts[0] == "browse" && parts[1] == SelectionKey(state) && parts[2] == "page" && int.TryParse(parts[3], out var requested) ? Math.Max(0, requested) : 0;
+                var page = parts.Length == 4 && parts[0] == "browse" && parts[1] == SelectionKey(state) &&
+                           parts[2] == "page" && int.TryParse(parts[3], out var requested)
+                    ? Math.Max(0, requested)
+                    : 0;
                 var rows = new List<IReadOnlyList<BotButton>>();
                 int count;
                 if (state.Step == 0)
                 {
                     var courses = repository.Query<Course>(false);
-                    if (!user.IsAdmin) courses = courses.Where(c => repository.Query<CourseMembership>(false).Any(m => m.CourseId == c.Id && m.UserId == user.Id));
-                    var query = courses.OrderBy(c => c.University).ThenBy(c => c.Year).ThenBy(c => c.Term).ThenBy(c => c.Id);
-                    count = await query.CountAsync(); page = Math.Min(page, Math.Max(0, (count - 1) / pageSize));
-                    foreach (var course in await query.Skip(page * pageSize).Take(pageSize).ToListAsync()) rows.Add([new BotButton($"{course.University} · {course.Year} · ترم {course.Term}", $"browse:{SelectionKey(state)}:course:{course.Id:N}")]);
+                    if (!user.IsAdmin)
+                        courses = courses.Where(c =>
+                            repository.Query<CourseMembership>(false)
+                                .Any(m => m.CourseId == c.Id && m.UserId == user.Id));
+                    var query = courses.OrderBy(c => c.University).ThenBy(c => c.Year).ThenBy(c => c.Term)
+                        .ThenBy(c => c.Id);
+                    count = await query.CountAsync();
+                    page = Math.Min(page, Math.Max(0, (count - 1) / pageSize));
+                    foreach (var course in await query.Skip(page * pageSize).Take(pageSize).ToListAsync())
+                        rows.Add([
+                            new BotButton(string.Format(global::VocabularyBot.Infrastructure.Resources.Messages.CourseButtonLabel, course.University, course.Year, course.Term),
+                                $"browse:{SelectionKey(state)}:course:{course.Id:N}")
+                        ]);
                 }
                 else
                 {
                     var data = JsonSerializer.Deserialize<List<string>>(state.Data) ?? [];
                     var courseId = Guid.Parse(data[0]);
-                    var query = repository.Query<User>(false).Where(u => u.StudentNumber != null && repository.Query<CourseMembership>(false).Any(m => m.CourseId == courseId && m.UserId == u.Id)).OrderBy(u => u.StudentNumber).ThenBy(u => u.Id);
-                    count = await query.CountAsync(); page = Math.Min(page, Math.Max(0, (count - 1) / pageSize));
-                    foreach (var student in await query.Skip(page * pageSize).Take(pageSize).ToListAsync()) rows.Add([new BotButton(student.StudentNumber!, $"browse:{SelectionKey(state)}:student:{student.Id:N}")]);
+                    var query = repository.Query<User>(false)
+                        .Where(u => u.StudentNumber != null && repository.Query<CourseMembership>(false)
+                            .Any(m => m.CourseId == courseId && m.UserId == u.Id)).OrderBy(u => u.StudentNumber)
+                        .ThenBy(u => u.Id);
+                    count = await query.CountAsync();
+                    page = Math.Min(page, Math.Max(0, (count - 1) / pageSize));
+                    foreach (var student in await query.Skip(page * pageSize).Take(pageSize).ToListAsync())
+                        rows.Add([
+                            new BotButton(student.StudentNumber!,
+                                $"browse:{SelectionKey(state)}:student:{student.Id:N}")
+                        ]);
                 }
+
                 var nav = new List<BotButton>();
-                if (page > 0) nav.Add(new("◀ صفحه قبل", $"browse:{SelectionKey(state)}:page:{page - 1}"));
-                if ((page + 1) * pageSize < count) nav.Add(new("صفحه بعد ▶", $"browse:{SelectionKey(state)}:page:{page + 1}"));
+                if (page > 0) nav.Add(new BotButton(global::VocabularyBot.Infrastructure.Resources.Messages.PreviousPage, $"browse:{SelectionKey(state)}:page:{page - 1}"));
+                if ((page + 1) * pageSize < count)
+                    nav.Add(new BotButton(global::VocabularyBot.Infrastructure.Resources.Messages.NextPage, $"browse:{SelectionKey(state)}:page:{page + 1}"));
                 if (nav.Count > 0) rows.Add(nav);
-                if (state.Step == 1) { rows.Add([new BotButton("📚 همه واژه‌های کلاس", $"browse:{SelectionKey(state)}:all:0")]); rows.Add([new BotButton("↩️ فهرست کلاس‌ها", $"browse:{SelectionKey(state)}:classes:0")]); }
+                if (state.Step == 1)
+                {
+                    rows.Add([new BotButton(global::VocabularyBot.Infrastructure.Resources.Messages.AllCourseWords, $"browse:{SelectionKey(state)}:all:0")]);
+                    rows.Add([new BotButton(global::VocabularyBot.Infrastructure.Resources.Messages.CourseListButton, $"browse:{SelectionKey(state)}:classes:0")]);
+                }
+
                 if (rows.Count == 0) return BotMenu.Reply([BotMenu.Join, BotMenu.Home]);
-                return new BotKeyboard(rows, Inline: true);
+                return new BotKeyboard(rows, true);
             }
-            if (state.Flow == "select_class" || state.Flow == "word" && state.Step == 0)
+
+            if (state.Flow == "select_class" || (state.Flow == "word" && state.Step == 0))
             {
                 var query = repository.Query<Course>(false);
                 if (state.Flow == "word")
-                    query = query.Where(c => repository.Query<CourseMembership>(false).Any(m => m.CourseId == c.Id && m.UserId == user.Id));
+                    query = query.Where(c =>
+                        repository.Query<CourseMembership>(false).Any(m => m.CourseId == c.Id && m.UserId == user.Id));
                 const int pageSize = 8;
                 var count = await query.CountAsync();
                 var parts = input.Split(':');
-                var page = parts.Length == 3 && parts[0] == "page" && parts[1] == SelectionKey(state) && int.TryParse(parts[2], out var requested)
-                    ? Math.Clamp(requested, 0, Math.Max(0, (count - 1) / pageSize)) : 0;
-                var courses = await query.OrderBy(c => c.University).ThenBy(c => c.Year).ThenBy(c => c.Term).ThenBy(c => c.Id)
+                var page = parts.Length == 3 && parts[0] == "page" && parts[1] == SelectionKey(state) &&
+                           int.TryParse(parts[2], out var requested)
+                    ? Math.Clamp(requested, 0, Math.Max(0, (count - 1) / pageSize))
+                    : 0;
+                var courses = await query.OrderBy(c => c.University).ThenBy(c => c.Year).ThenBy(c => c.Term)
+                    .ThenBy(c => c.Id)
                     .Skip(page * pageSize).Take(pageSize).ToListAsync();
                 if (courses.Count == 0) return BotMenu.Reply([BotMenu.Join], [BotMenu.Cancel]);
                 var rows = courses.Select(c => (IReadOnlyList<BotButton>)new[]
                 {
-                    new BotButton($"{c.University} · {c.Year} · ترم {c.Term}", $"class:{SelectionKey(state)}:{c.Id:N}")
+                    new BotButton(string.Format(global::VocabularyBot.Infrastructure.Resources.Messages.CourseButtonLabel, c.University, c.Year, c.Term), $"class:{SelectionKey(state)}:{c.Id:N}")
                 }).ToList();
                 var navigation = new List<BotButton>();
-                if (page > 0) navigation.Add(new("◀ صفحه قبل", $"page:{SelectionKey(state)}:{page - 1}"));
-                if ((page + 1) * pageSize < count) navigation.Add(new("صفحه بعد ▶", $"page:{SelectionKey(state)}:{page + 1}"));
+                if (page > 0) navigation.Add(new BotButton(global::VocabularyBot.Infrastructure.Resources.Messages.PreviousPage, $"page:{SelectionKey(state)}:{page - 1}"));
+                if ((page + 1) * pageSize < count)
+                    navigation.Add(new BotButton(global::VocabularyBot.Infrastructure.Resources.Messages.NextPage, $"page:{SelectionKey(state)}:{page + 1}"));
                 if (navigation.Count > 0) rows.Add(navigation);
                 rows.Add([new BotButton(BotMenu.Cancel, $"class:{SelectionKey(state)}:cancel")]);
-                return new BotKeyboard(rows, Inline: true);
+                return new BotKeyboard(rows, true);
             }
+
             var controls = new List<string[]>();
             if (state.Flow == "word" && state.Step == 4) controls.Add([BotMenu.SkipFamily]);
             if (state.Flow == "word" && state.Step == 5) controls.Add([BotMenu.Skip]);
             if (state.Flow == "word" && state.Step >= 6) controls.Add([BotMenu.Done]);
-            var canGoBack = state.Flow == "course" && state.Step > 0 ||
-                state.Flow == "word" && (state.Step > 1 || state.Step == 1 &&
-                    await repository.Query<CourseMembership>(false).CountAsync(m => m.UserId == user.Id) > 1);
+            var canGoBack = (state.Flow == "course" && state.Step > 0) ||
+                            (state.Flow == "word" && (state.Step > 1 || (state.Step == 1 &&
+                                                                         await repository.Query<CourseMembership>(false)
+                                                                             .CountAsync(m => m.UserId == user.Id) >
+                                                                         1)));
             if (canGoBack) controls.Add([BotMenu.Back, BotMenu.Cancel]);
             else controls.Add([BotMenu.Cancel]);
             controls.Add([BotMenu.Help]);
-            return BotMenu.Reply(controls.ToArray()) with { Placeholder = "پاسخ این مرحله را بنویسید…" };
+            return BotMenu.Reply(controls.ToArray()) with { Placeholder = global::VocabularyBot.Infrastructure.Resources.Messages.StepInputPlaceholder };
         }
+
         var menu = new List<string[]>();
         if (user.StudentNumber is not null)
         {
             menu.Add([BotMenu.Word, BotMenu.Words]);
             menu.Add([BotMenu.Classes, BotMenu.Join]);
         }
+
         if (user.StudentNumber is null && user.IsAdmin) menu.Add([BotMenu.Classes]);
         menu.Add([BotMenu.Register, BotMenu.Help]);
-        if (user.IsAdmin) { menu.Add([BotMenu.Course, BotMenu.Admin]); menu.Add([BotMenu.Browse]); }
+        if (user.IsAdmin)
+        {
+            menu.Add([BotMenu.Course, BotMenu.Admin]);
+            menu.Add([BotMenu.Browse]);
+        }
+
         return BotMenu.Reply(menu.ToArray());
     }
 
@@ -383,6 +581,10 @@ public sealed class BotService(IGenericRepository repository, IMediator mediator
     private async Task ClearFlow(Guid userId)
     {
         var state = await repository.Query<Conversation>().FirstOrDefaultAsync(x => x.UserId == userId);
-        if (state is not null) { repository.Delete(state); await repository.SaveChangesAsync(); }
+        if (state is not null)
+        {
+            repository.Delete(state);
+            await repository.SaveChangesAsync();
+        }
     }
 }

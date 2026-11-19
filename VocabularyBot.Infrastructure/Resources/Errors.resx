@@ -1,0 +1,150 @@
+<?xml version='1.0' encoding='utf-8'?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms</value>
+  </resheader>
+  <data name="ExpiredBrowseSelection" xml:space="preserve">
+    <value>این انتخاب دیگر فعال نیست. /browse</value>
+  </data>
+  <data name="InvalidBrowseCourse" xml:space="preserve">
+    <value>انتخاب کلاس معتبر نیست.</value>
+  </data>
+  <data name="CourseStudentNotFound" xml:space="preserve">
+    <value>دانشجوی این کلاس پیدا نشد.</value>
+  </data>
+  <data name="SelectedWordsNotFound" xml:space="preserve">
+    <value>هنوز واژه‌ای برای این انتخاب ثبت نشده است.</value>
+  </data>
+  <data name="InvalidBrowseSelection" xml:space="preserve">
+    <value>این انتخاب معتبر نیست. /browse</value>
+  </data>
+  <data name="ExpiredCourseSelection" xml:space="preserve">
+    <value>این انتخاب دیگر فعال نیست. برای انتخاب کلاس /join یا برای ثبت واژه /word را بفرستید.</value>
+  </data>
+  <data name="StartRequired" xml:space="preserve">
+    <value>ابتدا /start را ارسال کنید.</value>
+  </data>
+  <data name="StudentRegistrationRequired" xml:space="preserve">
+    <value>ابتدا شماره دانشجویی خود را با /register ثبت کنید.</value>
+  </data>
+  <data name="StudentRegistrationPromptRequired" xml:space="preserve">
+    <value>ابتدا شماره دانشجویی خود را ثبت کنید: /register</value>
+  </data>
+  <data name="CourseMembershipRequired" xml:space="preserve">
+    <value>ابتدا با /join کلاس خود را انتخاب کنید.</value>
+  </data>
+  <data name="UnknownCommand" xml:space="preserve">
+    <value>دستور ناشناخته است. /help</value>
+  </data>
+  <data name="RequiredFieldInvalid" xml:space="preserve">
+    <value>این فیلد اجباری است. لطفاً مقدار معتبر وارد کنید.</value>
+  </data>
+  <data name="PositiveNumberRequired" xml:space="preserve">
+    <value>این مقدار باید عدد مثبت باشد. لطفاً دوباره وارد کنید.</value>
+  </data>
+  <data name="UniversityNameTooLong" xml:space="preserve">
+    <value>نام دانشگاه نباید بیش از ۲۰۰ نویسه باشد. لطفاً نام کوتاه‌تری وارد کنید.</value>
+  </data>
+  <data name="UnsupportedOperation" xml:space="preserve">
+    <value>این عملیات دیگر پشتیبانی نمی‌شود. دوباره شروع کنید.</value>
+  </data>
+  <data name="TranslationLengthInvalid" xml:space="preserve">
+    <value>متن ترجمه باید بین ۱ تا ۲۰۰۰ نویسه باشد.</value>
+  </data>
+  <data name="WordFormIncomplete" xml:space="preserve">
+    <value>ابتدا فیلدهای اجباری و مرحله مترادف را تکمیل کنید.</value>
+  </data>
+  <data name="RequiredFieldMissing" xml:space="preserve">
+    <value>این فیلد اجباری است. لطفاً مقدار آن را وارد کنید.</value>
+  </data>
+  <data name="InputLengthInvalid" xml:space="preserve">
+    <value>متن واردشده باید بین ۱ تا ۲۰۰۰ نویسه باشد. لطفاً دوباره وارد کنید.</value>
+  </data>
+  <data name="InvalidCourseMembership" xml:space="preserve">
+    <value>کلاس معتبر نیست یا شما عضو آن نیستید. یکی از دکمه‌های کلاس را انتخاب کنید.</value>
+  </data>
+  <data name="NoCoursesAvailable" xml:space="preserve">
+    <value>هنوز کلاسی ایجاد نشده است. پس از ایجاد کلاس توسط ادمین، /join را بفرستید.</value>
+  </data>
+  <data name="InvalidCourseTerm" xml:space="preserve">
+    <value>سال و شماره ترم باید عدد مثبت باشند. لطفاً دوباره وارد کنید.</value>
+  </data>
+  <data name="CourseNotFound" xml:space="preserve">
+    <value>کلاس پیدا نشد. یکی از دکمه‌های فهرست کلاس‌ها را انتخاب کنید.</value>
+  </data>
+  <data name="AccessDenied" xml:space="preserve">
+    <value>دسترسی ندارید.</value>
+  </data>
+  <data name="InvalidStudentNumber" xml:space="preserve">
+    <value>شماره دانشجویی باید فقط شامل ارقام و حداکثر ۳۲ رقم باشد.</value>
+  </data>
+  <data name="RegisteredUserNotFound" xml:space="preserve">
+    <value>کاربر ثبت‌نام‌شده پیدا نشد.</value>
+  </data>
+  <data name="InvalidAdminRequest" xml:space="preserve">
+    <value>اطلاعات درخواست معتبر نیست.</value>
+  </data>
+  <data name="AdminTargetNotFound" xml:space="preserve">
+    <value>کاربر پیدا نشد. برای کاربر جدید شناسه عددی تلگرام را وارد کنید.</value>
+  </data>
+  <data name="RequiredWordDetailsMissing" xml:space="preserve">
+    <value>کلمه انگلیسی، تلفظ و معنی فارسی اجباری هستند.</value>
+  </data>
+  <data name="InvalidWordCourseMembership" xml:space="preserve">
+    <value>شناسه کلاس معتبر نیست یا شما عضو آن نیستید. /classes</value>
+  </data>
+  <data name="InvalidTranslationFormat" xml:space="preserve">
+    <value>قالب ترجمه معتبر نیست؛ هر ترجمه را به شکل «زبان: ترجمه» وارد کنید.</value>
+  </data>
+  <data name="DuplicateTranslationLanguage" xml:space="preserve">
+    <value>ترجمه زبان «{0}» تکراری است.</value>
+  </data>
+  <data name="AdminCommandRequired" xml:space="preserve">
+    <value>این دستور مخصوص ادمین است.</value>
+  </data>
+  <data name="AdminAccessRequired" xml:space="preserve">
+    <value>این دستور مخصوص ادمین است. برای دسترسی با ادمین هماهنگ کنید.</value>
+  </data>
+  <data name="InvalidSupportedTranslation" xml:space="preserve">
+    <value>زبان یا قالب ترجمه معتبر نیست. به شکل «آلمانی: Beispiel» وارد کنید. زبان‌های پشتیبانی‌شده: {0}.</value>
+  </data>
+  <data name="DuplicateWordRetry" xml:space="preserve">
+    <value>این واژه قبلاً ثبت شده است. لطفاً واژه دیگری وارد کنید یا /cancel را بفرستید.</value>
+  </data>
+  <data name="MessageProcessingFailed" xml:space="preserve">
+    <value>متأسفانه در پردازش پیام مشکلی پیش آمد. لطفاً دوباره تلاش کنید؛ اگر مشکل ادامه داشت با پشتیبانی تماس بگیرید.</value>
+  </data>
+  <data name="CourseAdminRequired" xml:space="preserve">
+    <value>فقط ادمین می‌تواند کلاس بسازد.</value>
+  </data>
+  <data name="InvalidUniversityName" xml:space="preserve">
+    <value>نام دانشگاه را وارد کنید؛ حداکثر ۲۰۰ نویسه مجاز است.</value>
+  </data>
+  <data name="DuplicateStudentNumber" xml:space="preserve">
+    <value>این شماره دانشجویی قبلاً ثبت شده است.</value>
+  </data>
+  <data name="PositiveNumberPrompt" xml:space="preserve">
+    <value>عدد مثبت وارد کنید.</value>
+  </data>
+  <data name="ValidIdentifierPrompt" xml:space="preserve">
+    <value>شناسه معتبر وارد کنید.</value>
+  </data>
+  <data name="ValidDatePrompt" xml:space="preserve">
+    <value>تاریخ معتبر میلادی با قالب خواسته‌شده وارد کنید.</value>
+  </data>
+  <data name="DuplicateWord" xml:space="preserve">
+    <value>این واژه قبلاً ثبت شده است.</value>
+  </data>
+  <data name="OperationFailed" xml:space="preserve">
+    <value>متأسفانه انجام عملیات ممکن نشد. لطفاً دوباره تلاش کنید؛ اگر مشکل ادامه داشت با پشتیبانی تماس بگیرید.</value>
+  </data>
+</root>

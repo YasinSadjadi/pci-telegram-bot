@@ -20,7 +20,8 @@ public sealed class ProcessMessageHandler(BotService service, ILogger<ProcessMes
         catch (Exception exception)
         {
             logger.LogError(exception, "Failed to process a Telegram message");
-            return new BotReply("متأسفانه در پردازش پیام مشکلی پیش آمد. لطفاً دوباره تلاش کنید؛ اگر مشکل ادامه داشت با پشتیبانی تماس بگیرید.");
+            return new BotReply(
+                global::VocabularyBot.Infrastructure.Resources.Error.MessageProcessingFailed);
         }
     }
 }

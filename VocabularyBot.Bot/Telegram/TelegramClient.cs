@@ -28,15 +28,22 @@ public sealed class TelegramClient(string token)
         }
     }
 
-    private static object Markup(BotKeyboard keyboard) => keyboard.Inline
-        ? new { inline_keyboard = keyboard.Rows.Select(row => row.Select(button => new { text = button.Text, callback_data = button.CallbackData })) }
-        : (object)new
-        {
-            keyboard = keyboard.Rows.Select(row => row.Select(button => new { text = button.Text })),
-            resize_keyboard = true,
-            is_persistent = true,
-            input_field_placeholder = keyboard.Placeholder
-        };
+    private static object Markup(BotKeyboard keyboard)
+    {
+        return keyboard.Inline
+            ? new
+            {
+                inline_keyboard = keyboard.Rows.Select(row =>
+                    row.Select(button => new { text = button.Text, callback_data = button.CallbackData }))
+            }
+            : new
+            {
+                keyboard = keyboard.Rows.Select(row => row.Select(button => new { text = button.Text })),
+                resize_keyboard = true,
+                is_persistent = true,
+                input_field_placeholder = keyboard.Placeholder
+            };
+    }
 
     // Prefer paragraph boundaries and never split a UTF-16 surrogate pair (for example, an emoji).
     public static IEnumerable<string> SplitMessage(string text)
@@ -51,6 +58,7 @@ public sealed class TelegramClient(string token)
             yield return text[..end];
             text = text[end..];
         }
+
         if (text.Length > 0) yield return text;
     }
 }

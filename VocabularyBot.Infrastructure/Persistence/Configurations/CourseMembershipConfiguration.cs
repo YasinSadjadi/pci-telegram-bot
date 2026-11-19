@@ -1,7 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using VocabularyBot.Domain;
+
 namespace VocabularyBot.Infrastructure.Persistence.Configurations;
+
 public sealed class CourseMembershipConfiguration : IEntityTypeConfiguration<CourseMembership>
 {
     public void Configure(EntityTypeBuilder<CourseMembership> builder)
