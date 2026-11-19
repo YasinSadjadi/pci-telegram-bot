@@ -39,8 +39,8 @@ public sealed class StudentVocabularyTests
     {
         await using var env = new TestEnvironment("example_admin");
         await env.Initialize();
-        await env.Mediator.Send(new ProcessMessageCommand(10, "example_admin", "Admin", "/start"));
-        await env.Mediator.Send(new ProcessMessageCommand(11, "example_admin", "Other", "/start"));
+        await env.Mediator.Send(new ProcessMessageCommand(10, "EXAMPLE_ADMIN", "Admin", "/start"));
+        await env.Mediator.Send(new ProcessMessageCommand(11, "Example_Admin", "Other", "/start"));
         Assert.True((await env.Db.Users.SingleAsync(x => x.TelegramId == 10)).IsAdmin);
         Assert.False((await env.Db.Users.SingleAsync(x => x.TelegramId == 11)).IsAdmin);
     }
