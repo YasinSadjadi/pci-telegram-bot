@@ -36,7 +36,6 @@ public static class Error
     public static string InvalidStudentNumber => Get(nameof(InvalidStudentNumber));
     public static string RegisteredUserNotFound => Get(nameof(RegisteredUserNotFound));
     public static string InvalidAdminRequest => Get(nameof(InvalidAdminRequest));
-    public static string AdminTargetNotFound => Get(nameof(AdminTargetNotFound));
     public static string RequiredWordDetailsMissing => Get(nameof(RequiredWordDetailsMissing));
     public static string InvalidWordCourseMembership => Get(nameof(InvalidWordCourseMembership));
     public static string InvalidTranslationFormat => Get(nameof(InvalidTranslationFormat));

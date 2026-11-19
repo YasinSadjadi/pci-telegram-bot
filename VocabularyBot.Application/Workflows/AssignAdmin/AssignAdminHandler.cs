@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using VocabularyBot.Domain;
@@ -16,21 +17,35 @@ public sealed class AssignAdminHandler(IGenericRepository repository, ILoggerFac
         if (u is null || !u.IsAdmin) return Result.Failure(global::VocabularyBot.Infrastructure.Resources.Error.AccessDenied);
         var v = request.Values;
         if (v.Count != 1) return Result.Failure(global::VocabularyBot.Infrastructure.Resources.Error.InvalidAdminRequest);
-        var identifier = Digits(v[0].Trim().TrimStart('@'));
-        var target = long.TryParse(identifier, out var telegramId)
-            ? await repository.Query<User>().FirstOrDefaultAsync(x => x.TelegramId == telegramId, cancellationToken)
-            : await repository.Query<User>()
-                .FirstOrDefaultAsync(x => x.Username != null && x.Username.ToLower() == identifier.ToLower(),
-                    cancellationToken);
-        if (target is null && long.TryParse(identifier, out telegramId) && telegramId > 0)
+        var identifier = v[0].Trim();
+        if (!identifier.StartsWith('@') && long.TryParse(Digits(identifier), out var telegramId))
         {
-            target = new User { TelegramId = telegramId };
-            repository.Create(target);
+            if (telegramId <= 0) return Result.Failure(global::VocabularyBot.Infrastructure.Resources.Error.InvalidAdminRequest);
+            var target = await repository.Query<User>()
+                .FirstOrDefaultAsync(x => x.TelegramId == telegramId, cancellationToken);
+            if (target is null)
+            {
+                target = new User { TelegramId = telegramId };
+                repository.Create(target);
+            }
+
+            target.IsAdmin = true;
+            await repository.SaveChangesAsync(cancellationToken);
+            return Result.Success(global::VocabularyBot.Infrastructure.Resources.Messages.AdminAssigned);
         }
 
-        if (target is null) return Result.Failure(global::VocabularyBot.Infrastructure.Resources.Error.AdminTargetNotFound);
-        target.IsAdmin = true;
-        await repository.SaveChangesAsync(cancellationToken);
-        return Result.Success(global::VocabularyBot.Infrastructure.Resources.Messages.AdminAssigned);
+        if (!Regex.IsMatch(identifier, @"\A@?[A-Za-z0-9_]{1,32}\z") ||
+            !Regex.IsMatch(identifier, "[A-Za-z]"))
+            return Result.Failure(global::VocabularyBot.Infrastructure.Resources.Error.InvalidAdminRequest);
+
+        // Verify ownership against the username from a fresh Telegram update.
+        var username = identifier.TrimStart('@').ToLowerInvariant();
+        if (!await repository.Query<PendingAdmin>().AnyAsync(x => x.Username == username, cancellationToken))
+        {
+            repository.Create(new PendingAdmin { Username = username });
+            await repository.SaveChangesAsync(cancellationToken);
+        }
+
+        return Result.Success(global::VocabularyBot.Infrastructure.Resources.Messages.AdminPending);
     }
 }

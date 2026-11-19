@@ -4,6 +4,7 @@
 .idea
 .vs
 .local
+.agents/skills/pci-bot-production-release
 .env
 .env.*
 **/appsettings.Development.json

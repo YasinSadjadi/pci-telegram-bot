@@ -47,12 +47,35 @@ public sealed class StudentVocabularyTests
         Assert.Contains("شماره دانشجویی", await env.Send(10, "/start"));
         Assert.Contains("فقط شامل ارقام", await env.Send(10, "abc"));
         Assert.Contains("فقط شامل ارقام", await env.Send(10, "12²"));
-        Assert.Contains("انجام شد", await env.Send(10, "۰0١۲3"));
+        Assert.Contains("انجام شد", (await env.CompleteProfile(10, "۰0١۲3")).Text);
         Assert.Equal("00123", (await env.Db.Users.SingleAsync()).StudentNumber);
         await env.Send(11, "/start");
         Assert.Contains("قبلاً", await env.Send(11, "00123"));
-        Assert.Contains("انجام شد", await env.Send(11, "456"));
+        Assert.Contains("انجام شد", (await env.CompleteProfile(11, "456")).Text);
         Assert.Equal(2, await env.Db.Users.CountAsync(x => x.StudentNumber != null));
+    }
+
+    [Fact]
+    public async Task Existing_student_only_needs_to_add_a_name_before_using_the_bot()
+    {
+        await using var env = new TestEnvironment();
+        await env.Initialize();
+        var student = new User { TelegramId = 10, StudentNumber = "00100", Name = "Telegram Name" };
+        env.Db.Users.Add(student);
+        await env.Db.SaveChangesAsync();
+        await JoinClass(env, 10);
+
+        Assert.Contains("نام و نام خانوادگی", await env.Send(10, "/classes"));
+        Assert.Contains("نام و نام خانوادگی", await env.Send(10, "browse:b12345678:page:0"));
+        Assert.Contains("نام و نام خانوادگی", await env.Send(10, "سارا 123"));
+        Assert.Null(student.FullName);
+        Assert.Contains("نام و نام خانوادگی", await env.Send(10, "/start"));
+        Assert.Contains("انجام شد", await env.Send(10, "  سارا   احمدی‌نیا  "));
+        Assert.Equal("00100", student.StudentNumber);
+        Assert.Equal("سارا احمدی‌نیا", student.FullName);
+        Assert.Contains("University", await env.Send(10, "/classes"));
+        await env.Send(10, "/start");
+        Assert.Equal("سارا احمدی‌نیا", student.FullName);
     }
 
     [Fact]
@@ -61,7 +84,7 @@ public sealed class StudentVocabularyTests
         await using var env = new TestEnvironment();
         await env.Initialize();
         await env.Send(10, "/start");
-        await env.Send(10, "100");
+        await env.CompleteProfile(10, "100");
         var course = await JoinClass(env, 10);
         await env.Send(10, "/word");
         Assert.Contains("اجباری", await env.Send(10, "/skip"));
@@ -88,9 +111,9 @@ public sealed class StudentVocabularyTests
         await using var env = new TestEnvironment();
         await env.Initialize();
         await env.Send(10, "/start");
-        await env.Send(10, "100");
+        await env.CompleteProfile(10, "100");
         await env.Send(11, "/start");
-        await env.Send(11, "101");
+        await env.CompleteProfile(11, "101");
         var course = await JoinClass(env, 10, 11);
 
         async Task<string> Word(long user, string title)
@@ -133,7 +156,7 @@ public sealed class StudentVocabularyTests
         Assert.Contains("ابتدا /start", await env.Send(10, "/word"));
         await env.Send(10, "/start");
         Assert.Contains("شماره دانشجویی", await env.Send(10, "/word"));
-        await env.Send(10, "100");
+        await env.CompleteProfile(10, "100");
         foreach (var command in new[] { "/group", "/week", "/leader", "/groups", "/status" })
             Assert.Contains("ناشناخته", await env.Send(10, command));
         Assert.Contains("/join", await env.Send(10, "/word"));
@@ -147,9 +170,9 @@ public sealed class StudentVocabularyTests
         await using var env = new TestEnvironment();
         await env.Initialize();
         await env.Send(10, "/start");
-        await env.Send(10, "100");
+        await env.CompleteProfile(10, "100");
         await env.Send(11, "/start");
-        await env.Send(11, "101");
+        await env.CompleteProfile(11, "101");
         var users = await env.Db.Users.OrderBy(x => x.TelegramId).ToListAsync();
         var course = await JoinClass(env, 10, 11);
         env.Db.VocabularyEntries.Add(new VocabularyEntry
@@ -176,7 +199,7 @@ public sealed class StudentVocabularyTests
         env.Db.Courses.AddRange(first, second);
         await env.Db.SaveChangesAsync();
         await env.Send(10, "/start");
-        var list = await env.Reply(10, "100");
+        var list = await env.CompleteProfile(10, "100");
         Assert.Contains(list.Keyboard!.Rows.SelectMany(x => x), b => b.CallbackData!.EndsWith(first.Id.ToString("N")));
         Assert.Contains(list.Keyboard.Rows.SelectMany(x => x), b => b.CallbackData!.EndsWith(second.Id.ToString("N")));
         Assert.Contains("پیدا نشد", await env.Send(10, "wrong"));
@@ -197,9 +220,9 @@ public sealed class StudentVocabularyTests
         await using var env = new TestEnvironment();
         await env.Initialize();
         await env.Send(1, "/start");
-        await env.Send(1, "111");
+        await env.CompleteProfile(1, "111");
         await env.Send(10, "/start");
-        await env.Send(10, "100");
+        await env.CompleteProfile(10, "100");
         Assert.Contains("مخصوص ادمین", await env.Send(10, "/course"));
         await env.Send(1, "/course");
         await env.Send(1, "University");
@@ -215,7 +238,7 @@ public sealed class StudentVocabularyTests
         await using var env = new TestEnvironment();
         await env.Initialize();
         await env.Send(10, "/start");
-        Assert.Contains("هنوز کلاسی", await env.Send(10, "100"));
+        Assert.Contains("هنوز کلاسی", (await env.CompleteProfile(10, "100")).Text);
         var course = new Course { University = "U", Year = 404, Term = 1 };
         env.Db.Courses.Add(course);
         await env.Db.SaveChangesAsync();
@@ -231,7 +254,7 @@ public sealed class StudentVocabularyTests
         await using var env = new TestEnvironment();
         await env.Initialize();
         await env.Send(10, "/start");
-        await env.Send(10, "100");
+        await env.CompleteProfile(10, "100");
         var course = await JoinClass(env, 10);
         await JoinClass(env, 10);
         await env.Send(10, "/word");
@@ -257,18 +280,50 @@ public sealed class StudentVocabularyTests
     }
 
     [Fact]
-    public async Task Admin_can_assign_admin_and_unknown_user_error_allows_retry()
+    public async Task Admin_can_assign_existing_user_by_username_after_invalid_input()
     {
         await using var env = new TestEnvironment();
         await env.Initialize();
         await env.Send(1, "/start");
-        await env.Send(1, "111");
+        await env.CompleteProfile(1, "111");
         await env.Send(10, "/start");
-        await env.Send(10, "100");
+        await env.CompleteProfile(10, "100");
         await env.Send(1, "/admin");
-        Assert.Contains("پیدا نشد", await env.Send(1, "missing"));
+        Assert.Contains("/cancel", await env.Send(1, "invalid username"));
         Assert.Contains("ادمین", await env.Send(1, "user10"));
+        await env.Send(10, "/start");
         Assert.True((await env.Db.Users.SingleAsync(x => x.TelegramId == 10)).IsAdmin);
+    }
+
+    [Fact]
+    public async Task Invited_username_keeps_admin_role_through_required_registration()
+    {
+        await using var env = new TestEnvironment();
+        await env.Initialize();
+        await env.Send(1, "/start");
+        await env.CompleteProfile(1, "111");
+        await env.Send(1, "/admin");
+        Assert.Contains("/start", await env.Send(1, "@UsEr222"));
+        Assert.False(await env.Db.Users.AnyAsync(u => u.TelegramId == 222));
+
+        var reply = await env.Reply(222, "/start");
+        Assert.Empty(reply.Keyboard!.Rows);
+        Assert.Contains("شماره دانشجویی", await env.Send(222, "/admin"));
+        var admin = await env.Db.Users.SingleAsync(u => u.TelegramId == 222);
+        Assert.True(admin.IsAdmin);
+        Assert.Null(admin.StudentNumber);
+        Assert.False(await env.Db.Set<PendingAdmin>().AnyAsync());
+
+        var reusedUsername = await env.Mediator.Send(new ProcessMessageCommand(223, "user222", "Other", "/start"));
+        Assert.DoesNotContain(reusedUsername.Keyboard!.Rows.SelectMany(row => row), button => button.Text == BotMenu.Admin);
+
+        var registered = await env.CompleteProfile(222, "222000");
+        Assert.Contains(registered.Keyboard!.Rows.SelectMany(row => row), button => button.Text == BotMenu.Admin);
+        await env.Send(222, "/cancel");
+        Assert.False(await env.Db.CourseMemberships.AnyAsync(m => m.UserId == admin.Id));
+        await JoinClass(env, 222);
+        Assert.True(await env.Db.CourseMemberships.AnyAsync(m => m.UserId == admin.Id));
+        Assert.True(admin.IsAdmin);
     }
 
     [Fact]
@@ -280,7 +335,7 @@ public sealed class StudentVocabularyTests
         env.Db.Courses.Add(course);
         await env.Db.SaveChangesAsync();
         Assert.Contains("شماره دانشجویی", await env.Send(10, "/start"));
-        var choices = await env.Reply(10, "1234");
+        var choices = await env.CompleteProfile(10, "1234");
         var choice = choices.Keyboard!.Rows.SelectMany(x => x)
             .Single(b => b.CallbackData!.EndsWith(course.Id.ToString("N")));
         Assert.Contains("عضویت", await env.Send(10, choice.CallbackData!));
@@ -300,7 +355,7 @@ public sealed class StudentVocabularyTests
         await using var env = new TestEnvironment();
         await env.Initialize();
         await env.Send(10, "/start");
-        await env.Send(10, "100");
+        await env.CompleteProfile(10, "100");
         await JoinClass(env, 10);
         await env.Send(10, "/word");
         await env.Send(10, "example");
@@ -326,7 +381,7 @@ public sealed class StudentVocabularyTests
         await using var env = new TestEnvironment();
         await env.Initialize();
         await env.Send(10, "/start");
-        await env.Send(10, "100");
+        await env.CompleteProfile(10, "100");
         var course = await JoinClass(env, 10);
         var result = await env.Mediator.Send(new RegisterWordCommand(10,
             [course.Id.ToString(), "word", "pronunciation", "معنی", " ", ""]));
@@ -340,7 +395,7 @@ public sealed class StudentVocabularyTests
         await using var env = new TestEnvironment();
         await env.Initialize();
         await env.Send(10, "/start");
-        await env.Send(10, "100");
+        await env.CompleteProfile(10, "100");
         var course = await JoinClass(env, 10);
         var user = await env.Db.Users.SingleAsync(x => x.TelegramId == 10);
         var word = new VocabularyEntry
@@ -367,11 +422,11 @@ public sealed class StudentVocabularyTests
         await env.Initialize();
         await env.Send(10, "/start");
         var welcome = await env.Reply(10, BotMenu.Cancel);
-        Assert.Contains(welcome.Keyboard!.Rows.SelectMany(x => x), b => b.Text == BotMenu.Register);
+        Assert.Empty(welcome.Keyboard!.Rows);
         Assert.DoesNotContain(welcome.Keyboard.Rows.SelectMany(x => x),
             b => b.Text == BotMenu.Admin || b.Text == BotMenu.Word);
         await env.Send(10, BotMenu.Register);
-        await env.Send(10, "100");
+        await env.CompleteProfile(10, "100");
         await JoinClass(env, 10);
         await env.Send(10, BotMenu.Word);
         await env.Send(10, "draft");
@@ -381,7 +436,7 @@ public sealed class StudentVocabularyTests
         Assert.Empty(await env.Db.VocabularyEntries.ToListAsync());
         Assert.DoesNotContain("/admin", await env.Send(10, BotMenu.Help));
         await env.Send(1, "/start");
-        var admin = await env.Reply(1, BotMenu.Cancel);
+        var admin = await env.CompleteProfile(1, "111");
         Assert.Contains(admin.Keyboard!.Rows.SelectMany(x => x), b => b.Text == BotMenu.Admin);
     }
 
@@ -394,7 +449,7 @@ public sealed class StudentVocabularyTests
             .Select(i => new Course { University = $"University {i:00}", Year = 1405, Term = 1 }));
         await env.Db.SaveChangesAsync();
         await env.Send(10, "/start");
-        var first = await env.Reply(10, "100");
+        var first = await env.CompleteProfile(10, "100");
         Assert.True(first.Keyboard!.Inline);
         Assert.Equal(8, first.Keyboard.Rows.SelectMany(x => x).Count(b => b.Text.StartsWith("University")));
         var next = first.Keyboard.Rows.SelectMany(x => x).Single(b => b.CallbackData!.StartsWith("page:"));
@@ -421,7 +476,7 @@ public sealed class StudentVocabularyTests
         await using var env = new TestEnvironment();
         await env.Initialize();
         await env.Send(10, "/start");
-        await env.Send(10, "100");
+        await env.CompleteProfile(10, "100");
         await JoinClass(env, 10);
         var start = await env.Reply(10, BotMenu.Word);
         Assert.DoesNotContain(start.Keyboard!.Rows.SelectMany(x => x),
@@ -453,7 +508,7 @@ public sealed class StudentVocabularyTests
         await using var env = new TestEnvironment();
         await env.Initialize();
         await env.Send(10, "/start");
-        await env.Send(10, "100");
+        await env.CompleteProfile(10, "100");
         var first = await JoinClass(env, 10);
         await JoinClass(env, 10);
         var other = new Course { University = "Other", Year = 1405, Term = 1 };
@@ -475,7 +530,7 @@ public sealed class StudentVocabularyTests
         await using var env = new TestEnvironment();
         await env.Initialize();
         await env.Send(1, "/start");
-        await env.Send(1, "100");
+        await env.CompleteProfile(1, "100");
         await env.Send(1, BotMenu.Course);
         await env.Send(1, "University");
         await env.Send(1, "۱۴۰۴");
@@ -493,7 +548,7 @@ public sealed class StudentVocabularyTests
         await using var env = new TestEnvironment();
         await env.Initialize();
         await env.Send(10, "/start");
-        await env.Send(10, "100");
+        await env.CompleteProfile(10, "100");
         var course = await JoinClass(env, 10);
         var result = await env.Mediator.Send(new RegisterWordCommand(10,
             [course.Id.ToString(), "example", "pronunciation", "معنی", "family", "", "ژاپنی: 例"]));
@@ -508,19 +563,27 @@ public sealed class StudentVocabularyTests
         await using var env = new TestEnvironment();
         await env.Initialize();
         await env.Send(1, "/start");
+        await env.CompleteProfile(1, "111");
         await env.Send(1, "/admin");
         Assert.Contains("ادمین", await env.Send(1, "۲۲۲"));
         Assert.True((await env.Db.Users.SingleAsync(u => u.TelegramId == 222)).IsAdmin);
-        var admin = await env.Reply(222, "/start");
+        await env.Reply(222, "/start");
+        var admin = await env.CompleteProfile(222, "222000");
         Assert.Contains(admin.Keyboard!.Rows.SelectMany(r => r), b => b.Text == BotMenu.Browse);
         await env.Send(10, "/start");
-        await env.Send(10, "100");
+        await env.CompleteProfile(10, "100");
         await env.Send(11, "/start");
-        await env.Send(11, "101");
+        await env.CompleteProfile(11, "101");
         var course = await JoinClass(env, 10, 11);
         var users = await env.Db.Users.Where(u => u.TelegramId == 10 || u.TelegramId == 11).OrderBy(u => u.TelegramId)
             .ToListAsync();
+        var otherCourse = await JoinClass(env, 10);
         env.Db.VocabularyEntries.AddRange(
+            new VocabularyEntry
+            {
+                CourseId = otherCourse.Id, UserId = users[0].Id, EnglishWord = "gamma", NormalizedWord = "GAMMA",
+                Pronunciation = "g", PersianMeaning = "گ"
+            },
             new VocabularyEntry
             {
                 CourseId = course.Id, UserId = users[0].Id, EnglishWord = "alpha", NormalizedWord = "ALPHA",
@@ -537,9 +600,12 @@ public sealed class StudentVocabularyTests
         var classButton = classes.Keyboard!.Rows.SelectMany(r => r)
             .Single(b => b.CallbackData!.EndsWith(course.Id.ToString("N")));
         var students = await env.Reply(222, classButton.CallbackData!);
-        var student = students.Keyboard!.Rows.SelectMany(r => r).Single(b => b.Text == "100");
+        var student = students.Keyboard!.Rows.SelectMany(r => r).Single(b => b.Text == "سارا احمدی (100)");
         var studentWords = await env.Send(222, student.CallbackData!);
+        Assert.Contains("کل واژه‌های ثبت‌شده: 2", studentWords);
+        Assert.Contains("واژه‌های این کلاس: 1", studentWords);
         Assert.Contains("alpha", studentWords);
+        Assert.DoesNotContain("gamma", studentWords);
         Assert.DoesNotContain("beta", studentWords);
         var all = students.Keyboard.Rows.SelectMany(r => r).Single(b => b.Text.Contains("همه واژه"));
         var allWords = await env.Send(222, all.CallbackData!);
@@ -558,9 +624,9 @@ public sealed class StudentVocabularyTests
         await using var env = new TestEnvironment();
         await env.Initialize();
         await env.Send(10, "/start");
-        await env.Send(10, "100");
+        await env.CompleteProfile(10, "100");
         await env.Send(11, "/start");
-        await env.Send(11, "101");
+        await env.CompleteProfile(11, "101");
         var memberCourse = await JoinClass(env, 10, 11);
         var otherCourse = await JoinClass(env, 11);
         var owner = await env.Db.Users.SingleAsync(u => u.TelegramId == 11);
@@ -579,8 +645,10 @@ public sealed class StudentVocabularyTests
             await env.Send(10,
                 courseButton.CallbackData!.Replace(memberCourse.Id.ToString("N"), otherCourse.Id.ToString("N"))));
         var students = await env.Reply(10, courseButton.CallbackData!);
-        var studentButton = students.Keyboard!.Rows.SelectMany(r => r).Single(b => b.Text == "101");
+        var studentButton = students.Keyboard!.Rows.SelectMany(r => r).Single(b => b.Text == "سارا احمدی (101)");
         Assert.Contains("alpha", await env.Send(10, studentButton.CallbackData!));
+        var emptyStudent = students.Keyboard.Rows.SelectMany(r => r).Single(b => b.Text == "سارا احمدی (100)");
+        Assert.Contains("کل واژه‌های ثبت‌شده: 0", await env.Send(10, emptyStudent.CallbackData!));
         var all = students.Keyboard.Rows.SelectMany(r => r).Single(b => b.Text.Contains("همه واژه"));
         Assert.Contains("alpha", await env.Send(10, all.CallbackData!));
     }
@@ -628,6 +696,12 @@ public sealed class StudentVocabularyTests
         public Task<BotReply> Reply(long id, string text)
         {
             return Mediator.Send(new ProcessMessageCommand(id, "user" + id, "Student", text));
+        }
+
+        public async Task<BotReply> CompleteProfile(long id, string number)
+        {
+            Assert.Contains("نام و نام خانوادگی", await Send(id, number));
+            return await Reply(id, "سارا احمدی");
         }
 
         public async Task<string> Send(long id, string text)

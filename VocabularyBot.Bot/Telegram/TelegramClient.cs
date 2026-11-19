@@ -30,6 +30,8 @@ public sealed class TelegramClient(string token)
 
     private static object Markup(BotKeyboard keyboard)
     {
+        if (keyboard.Rows.Count == 0) return new { remove_keyboard = true };
+
         return keyboard.Inline
             ? new
             {

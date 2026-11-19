@@ -28,9 +28,13 @@ public static class Messages
     public static string HelpText => Get(nameof(HelpText));
     public static string AdminHelpText => Get(nameof(AdminHelpText));
     public static string BrowseCoursePrompt => Get(nameof(BrowseCoursePrompt));
+    public static string FullNamePrompt => Get(nameof(FullNamePrompt));
+    public static string FullNamePlaceholder => Get(nameof(FullNamePlaceholder));
+    public static string InvalidFullName => Get(nameof(InvalidFullName));
+    public static string StudentNameMissing => Get(nameof(StudentNameMissing));
+    public static string StudentWordStats => Get(nameof(StudentWordStats));
     public static string BrowseStudentPrompt => Get(nameof(BrowseStudentPrompt));
     public static string BrowseWordsHeading => Get(nameof(BrowseWordsHeading));
-    public static string WelcomeRegistrationPrompt => Get(nameof(WelcomeRegistrationPrompt));
     public static string OperationCancelled => Get(nameof(OperationCancelled));
     public static string StudentNumberPrompt => Get(nameof(StudentNumberPrompt));
     public static string BrowseCourseHint => Get(nameof(BrowseCourseHint));
@@ -47,7 +51,6 @@ public static class Messages
     public static string FinishTranslationEntry => Get(nameof(FinishTranslationEntry));
     public static string JoinCoursePrompt => Get(nameof(JoinCoursePrompt));
     public static string HomeHeading => Get(nameof(HomeHeading));
-    public static string HomeRegistrationHint => Get(nameof(HomeRegistrationHint));
     public static string HomeMenuHint => Get(nameof(HomeMenuHint));
     public static string FirstWordStep => Get(nameof(FirstWordStep));
     public static string ReenterWordDetails => Get(nameof(ReenterWordDetails));
@@ -75,6 +78,7 @@ public static class Messages
     public static string WordFamilyLabel => Get(nameof(WordFamilyLabel));
     public static string SynonymsLabel => Get(nameof(SynonymsLabel));
     public static string AdminAssigned => Get(nameof(AdminAssigned));
+    public static string AdminPending => Get(nameof(AdminPending));
     public static string WordRegistered => Get(nameof(WordRegistered));
     public static string WordListSeparator => Get(nameof(WordListSeparator));
     public static string WordHeading => Get(nameof(WordHeading));

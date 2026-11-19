@@ -11,6 +11,8 @@ using VocabularyBot.Application.Workflows.RegisterWord;
 using VocabularyBot.Domain;
 using VocabularyBot.Domain.Words;
 using VocabularyBot.Infrastructure.Persistence.Repositories;
+using Messages = VocabularyBot.Infrastructure.Resources.Messages;
+using Error = VocabularyBot.Infrastructure.Resources.Error;
 
 namespace VocabularyBot.Application.Conversations;
 
@@ -47,6 +49,50 @@ public sealed class BotService(IGenericRepository repository, IMediator mediator
     {
         input = BotMenu.Command(input.Trim());
         var user = await repository.Query<User>().FirstOrDefaultAsync(x => x.TelegramId == id);
+        if (input == "/start")
+        {
+            if (user is null)
+            {
+                user = new User { TelegramId = id };
+                repository.Create(user);
+            }
+
+            user.Name = name;
+            user.Username = username;
+            if (!string.IsNullOrEmpty(username))
+            {
+                var normalizedUsername = username.ToLowerInvariant();
+                var pending = await repository.Query<PendingAdmin>()
+                    .SingleOrDefaultAsync(x => x.Username == normalizedUsername);
+                if (pending is not null)
+                {
+                    user.IsAdmin = true;
+                    repository.Delete(pending);
+                }
+            }
+
+            if (id == options.BootstrapAdminId ||
+                (!string.IsNullOrWhiteSpace(username) && !string.IsNullOrWhiteSpace(options.BootstrapAdminUsername) &&
+                 string.Equals(username.TrimStart('@'), options.BootstrapAdminUsername.Trim().TrimStart('@'),
+                     StringComparison.OrdinalIgnoreCase) &&
+                 !await repository.Query<User>().AnyAsync(x => x.IsAdmin)))
+                user.IsAdmin = true;
+            await repository.SaveChangesAsync();
+            if (!HasProfile(user))
+            {
+                var registration = await RegistrationState(user);
+                return RegistrationPrompt(registration);
+            }
+
+            return await AfterRegistration(user);
+        }
+
+        if (user is not null && !HasProfile(user))
+        {
+            var registration = await RegistrationState(user);
+            return await Register(user, registration, input);
+        }
+
         if (input.StartsWith("browse:"))
         {
             var browseState = user is null
@@ -87,14 +133,25 @@ public sealed class BotService(IGenericRepository repository, IMediator mediator
                         .AnyAsync(m => m.CourseId == selectedId && m.UserId == studentId)))
                     return global::VocabularyBot.Infrastructure.Resources.Error.CourseStudentNotFound;
                 var query = repository.Query<VocabularyEntry>(false).Where(w => w.CourseId == selectedId);
-                if (parts[2] == "student") query = query.Where(w => w.UserId == studentId);
+                User? student = null;
+                if (parts[2] == "student")
+                {
+                    student = await repository.Query<User>(false).SingleAsync(u => u.Id == studentId);
+                    query = query.Where(w => w.UserId == studentId);
+                }
                 var words = await query.OrderBy(w => w.EnglishWord).ToListAsync();
-                if (words.Count == 0) return global::VocabularyBot.Infrastructure.Resources.Error.SelectedWordsNotFound;
+                var heading = string.Format(Messages.BrowseWordsHeading, words.Count);
+                if (student is not null)
+                {
+                    var total = await repository.Query<VocabularyEntry>(false).CountAsync(w => w.UserId == studentId);
+                    heading = string.Format(Messages.StudentWordStats, StudentLabel(student), total, words.Count);
+                }
+                if (words.Count == 0) return heading + Error.SelectedWordsNotFound;
                 var ids = words.Select(w => w.Id).ToArray();
                 var translations = await repository.Query<WordTranslation>(false)
                     .Where(t => ids.Contains(t.VocabularyEntryId)).OrderBy(t => t.Type).ToListAsync();
                 var lookup = translations.ToLookup(t => t.VocabularyEntryId);
-                return string.Format(global::VocabularyBot.Infrastructure.Resources.Messages.BrowseWordsHeading, words.Count) + string.Join(global::VocabularyBot.Infrastructure.Resources.Messages.WordListSeparator,
+                return heading + string.Join(global::VocabularyBot.Infrastructure.Resources.Messages.WordListSeparator,
                     words.Select(w => ListMyWordsHandler.Format(w, lookup[w.Id])));
             }
 
@@ -114,51 +171,17 @@ public sealed class BotService(IGenericRepository repository, IMediator mediator
             input = parts[2] == "cancel" ? "/cancel" : parts[2];
         }
 
-        if (input == "/start")
-        {
-            if (user is null)
-            {
-                user = new User { TelegramId = id };
-                repository.Create(user);
-            }
-
-            user.Name = name;
-            user.Username = username;
-            if (id == options.BootstrapAdminId ||
-                (!string.IsNullOrWhiteSpace(username) && !string.IsNullOrWhiteSpace(options.BootstrapAdminUsername) &&
-                 string.Equals(username.TrimStart('@'), options.BootstrapAdminUsername.Trim().TrimStart('@'),
-                     StringComparison.OrdinalIgnoreCase) &&
-                 !await repository.Query<User>().AnyAsync(x => x.IsAdmin)))
-                user.IsAdmin = true;
-            await repository.SaveChangesAsync();
-            if (user.StudentNumber is null && !user.IsAdmin)
-            {
-                await StartFlow(user.Id, "register");
-                return
-                    global::VocabularyBot.Infrastructure.Resources.Messages.WelcomeRegistrationPrompt;
-            }
-
-            if (!await repository.Query<CourseMembership>().AnyAsync(m => m.UserId == user.Id) && !user.IsAdmin)
-            {
-                await StartFlow(user.Id, "select_class");
-                return await ClassSelectionPrompt();
-            }
-
-            await ClearFlow(user.Id);
-            return Home(user);
-        }
-
         if (user is null) return global::VocabularyBot.Infrastructure.Resources.Error.StartRequired;
         if (input == "/cancel")
         {
             await ClearFlow(user.Id);
-            return global::VocabularyBot.Infrastructure.Resources.Messages.OperationCancelled + Home(user);
+            return global::VocabularyBot.Infrastructure.Resources.Messages.OperationCancelled + Home();
         }
 
         if (input == "/menu")
         {
             await ClearFlow(user.Id);
-            return Home(user);
+            return Home();
         }
 
         if (input == "/help") return Help(user.IsAdmin);
@@ -166,7 +189,7 @@ public sealed class BotService(IGenericRepository repository, IMediator mediator
         if (input == "/register")
         {
             await StartFlow(user.Id, "register");
-            return global::VocabularyBot.Infrastructure.Resources.Messages.StudentNumberPrompt;
+            return Messages.StudentNumberPrompt;
         }
 
         if (input == "/classes")
@@ -178,7 +201,6 @@ public sealed class BotService(IGenericRepository repository, IMediator mediator
 
         if (input == "/join")
         {
-            if (user.StudentNumber is null) return global::VocabularyBot.Infrastructure.Resources.Error.StudentRegistrationRequired;
             await StartFlow(user.Id, "select_class");
             return await ClassSelectionPrompt();
         }
@@ -208,7 +230,6 @@ public sealed class BotService(IGenericRepository repository, IMediator mediator
         if (input == "/words") return await mediator.Send(new ListMyWordsQuery(id));
         if (input == "/word")
         {
-            if (user.StudentNumber is null) return global::VocabularyBot.Infrastructure.Resources.Error.StudentRegistrationPromptRequired;
             var memberships = await repository.Query<CourseMembership>(false).Where(m => m.UserId == user.Id)
                 .Select(m => m.CourseId).ToListAsync();
             if (memberships.Count == 0) return global::VocabularyBot.Infrastructure.Resources.Error.CourseMembershipRequired;
@@ -228,14 +249,8 @@ public sealed class BotService(IGenericRepository repository, IMediator mediator
         if (input is not ("/skip" or "/done") && Regex.IsMatch(input, @"^/[A-Za-z_]+$"))
             return global::VocabularyBot.Infrastructure.Resources.Error.UnknownCommand;
         var state = await repository.Query<Conversation>().FirstOrDefaultAsync(x => x.UserId == user.Id);
-        if (state is null) return Home(user);
-        if (state.Flow == "register")
-        {
-            var result = await mediator.Send(new RegisterStudentCommand(id, input));
-            if (!result.IsSuccessful) return result.Message;
-            await StartFlow(user.Id, "select_class");
-            return result.Message + "\n" + await ClassSelectionPrompt();
-        }
+        if (state is null) return Home();
+        if (state.Flow == "register") return await Register(user, state, input);
 
         if (state.Flow == "admin")
         {
@@ -398,13 +413,71 @@ public sealed class BotService(IGenericRepository repository, IMediator mediator
             global::VocabularyBot.Infrastructure.Resources.Messages.JoinCoursePrompt;
     }
 
-    private static string Home(User user)
+    private static string StudentLabel(User student) =>
+        $"{student.FullName ?? Messages.StudentNameMissing} ({student.StudentNumber})";
+
+    private static bool HasProfile(User user) =>
+        user.StudentNumber is not null && !string.IsNullOrWhiteSpace(user.FullName);
+
+    private async Task<Conversation> RegistrationState(User user)
     {
-        return global::VocabularyBot.Infrastructure.Resources.Messages.HomeHeading +
-               (user.StudentNumber is null
-                   ? global::VocabularyBot.Infrastructure.Resources.Messages.HomeRegistrationHint
-                   : global::VocabularyBot.Infrastructure.Resources.Messages.HomeMenuHint);
+        var state = await repository.Query<Conversation>().FirstOrDefaultAsync(x => x.UserId == user.Id);
+        var firstStep = user.StudentNumber is null ? 0 : 1;
+        if (state?.Flow == "register" && state.Step >= firstStep) return state;
+        return await StartFlow(user.Id, "register", firstStep);
     }
+
+    private static string RegistrationPrompt(Conversation state) =>
+        state.Step == 0 ? Messages.StudentNumberPrompt : Messages.FullNamePrompt;
+
+    private async Task<string> Register(User user, Conversation state, string input)
+    {
+        if (input == "/back" && state.Step == 1 && state.Data != "[]")
+        {
+            state.Step = 0;
+            state.Data = "[]";
+            await repository.SaveChangesAsync();
+            return RegistrationPrompt(state);
+        }
+
+        if (input.StartsWith('/') || input.StartsWith("browse:") ||
+            input.StartsWith("class:") || input.StartsWith("page:"))
+            return RegistrationPrompt(state);
+
+        if (state.Step == 0)
+        {
+            var number = RegisterStudentHandler.NormalizeNumber(input);
+            if (number is null) return Error.InvalidStudentNumber;
+            if (await repository.Query<User>(false).AnyAsync(u => u.StudentNumber == number && u.Id != user.Id))
+                return Error.DuplicateStudentNumber;
+
+            state.Data = JsonSerializer.Serialize(new[] { number });
+            state.Step = 1;
+            await repository.SaveChangesAsync();
+            return RegistrationPrompt(state);
+        }
+
+        var pending = JsonSerializer.Deserialize<string[]>(state.Data) ?? [];
+        var result = await mediator.Send(new RegisterStudentCommand(user.TelegramId,
+            pending.FirstOrDefault() ?? user.StudentNumber!, input));
+        if (!result.IsSuccessful) return result.Message;
+
+        return result.Message + "\n\n" + await AfterRegistration(user);
+    }
+
+    private async Task<string> AfterRegistration(User user)
+    {
+        if (!user.IsAdmin && !await repository.Query<CourseMembership>().AnyAsync(m => m.UserId == user.Id))
+        {
+            await StartFlow(user.Id, "select_class");
+            return await ClassSelectionPrompt();
+        }
+
+        await ClearFlow(user.Id);
+        return Home();
+    }
+
+    private static string Home() => Messages.HomeHeading + Messages.HomeMenuHint;
 
     private static string SelectionKey(Conversation state)
     {
@@ -414,8 +487,9 @@ public sealed class BotService(IGenericRepository repository, IMediator mediator
     private async Task<string> Back(User user)
     {
         var state = await repository.Query<Conversation>().FirstOrDefaultAsync(x => x.UserId == user.Id);
-        if (state is null) return Home(user);
+        if (state is null) return Home();
         var values = JsonSerializer.Deserialize<List<string>>(state.Data) ?? [];
+        if (state.Flow == "register") return await Register(user, state, "/back");
         if (state.Flow == "course" && values.Count > 0)
         {
             values.RemoveAt(values.Count - 1);
@@ -446,6 +520,18 @@ public sealed class BotService(IGenericRepository repository, IMediator mediator
         var user = await repository.Query<User>(false).FirstOrDefaultAsync(x => x.TelegramId == telegramId);
         if (user is null) return BotMenu.Reply(["/start"]);
         var state = await repository.Query<Conversation>(false).FirstOrDefaultAsync(x => x.UserId == user.Id);
+        if (!HasProfile(user) || state?.Flow == "register")
+        {
+            var canGoBack = state?.Step == 1 && state.Data != "[]";
+            var rows = new List<string[]>();
+            if (canGoBack) rows.Add([BotMenu.Back]);
+            if (HasProfile(user)) rows.Add([BotMenu.Cancel]);
+            return BotMenu.Reply(rows.ToArray()) with
+            {
+                Placeholder = state?.Step == 1 ? Messages.FullNamePlaceholder : Messages.StepInputPlaceholder
+            };
+        }
+
         if (state is not null)
         {
             if (state.Flow == "browse")
@@ -481,13 +567,14 @@ public sealed class BotService(IGenericRepository repository, IMediator mediator
                     var courseId = Guid.Parse(data[0]);
                     var query = repository.Query<User>(false)
                         .Where(u => u.StudentNumber != null && repository.Query<CourseMembership>(false)
-                            .Any(m => m.CourseId == courseId && m.UserId == u.Id)).OrderBy(u => u.StudentNumber)
+                            .Any(m => m.CourseId == courseId && m.UserId == u.Id)).OrderBy(u => u.FullName == null)
+                        .ThenBy(u => u.FullName).ThenBy(u => u.StudentNumber)
                         .ThenBy(u => u.Id);
                     count = await query.CountAsync();
                     page = Math.Min(page, Math.Max(0, (count - 1) / pageSize));
                     foreach (var student in await query.Skip(page * pageSize).Take(pageSize).ToListAsync())
                         rows.Add([
-                            new BotButton(student.StudentNumber!,
+                            new BotButton(StudentLabel(student),
                                 $"browse:{SelectionKey(state)}:student:{student.Id:N}")
                         ]);
                 }
@@ -553,13 +640,8 @@ public sealed class BotService(IGenericRepository repository, IMediator mediator
         }
 
         var menu = new List<string[]>();
-        if (user.StudentNumber is not null)
-        {
-            menu.Add([BotMenu.Word, BotMenu.Words]);
-            menu.Add([BotMenu.Classes, BotMenu.Join]);
-        }
-
-        if (user.StudentNumber is null && user.IsAdmin) menu.Add([BotMenu.Classes]);
+        menu.Add([BotMenu.Word, BotMenu.Words]);
+        menu.Add([BotMenu.Classes, BotMenu.Join]);
         menu.Add([BotMenu.Register, BotMenu.Help]);
         if (user.IsAdmin)
         {
@@ -570,12 +652,14 @@ public sealed class BotService(IGenericRepository repository, IMediator mediator
         return BotMenu.Reply(menu.ToArray());
     }
 
-    private async Task StartFlow(Guid userId, string flow)
+    private async Task<Conversation> StartFlow(Guid userId, string flow, int step = 0)
     {
         // A fresh conversation identity also expires buttons from previous forms.
         await ClearFlow(userId);
-        repository.Create(new Conversation { UserId = userId, Flow = flow });
+        var state = new Conversation { UserId = userId, Flow = flow, Step = step };
+        repository.Create(state);
         await repository.SaveChangesAsync();
+        return state;
     }
 
     private async Task ClearFlow(Guid userId)

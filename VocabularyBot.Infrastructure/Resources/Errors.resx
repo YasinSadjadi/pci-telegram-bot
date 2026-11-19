@@ -93,9 +93,6 @@
   <data name="InvalidAdminRequest" xml:space="preserve">
     <value>اطلاعات درخواست معتبر نیست.</value>
   </data>
-  <data name="AdminTargetNotFound" xml:space="preserve">
-    <value>کاربر پیدا نشد. برای کاربر جدید شناسه عددی تلگرام را وارد کنید.</value>
-  </data>
   <data name="RequiredWordDetailsMissing" xml:space="preserve">
     <value>کلمه انگلیسی، تلفظ و معنی فارسی اجباری هستند.</value>
   </data>

@@ -1,6 +1,7 @@
 **/bin/
 **/obj/
 .local/
+/.agents/skills/pci-bot-production-release/
 *.db
 *.db-shm
 *.db-wal
