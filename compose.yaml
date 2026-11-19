@@ -1,0 +1,28 @@
+services:
+  bot:
+    build: .
+    restart: unless-stopped
+    init: true
+    environment:
+      DOTNET_ENVIRONMENT: Production
+      BOT_TOKEN: ${BOT_TOKEN:?Set BOT_TOKEN in .env}
+      BOT_ADMIN_ID: ${BOT_ADMIN_ID:-}
+      BOT_ADMIN_USERNAME: ${BOT_ADMIN_USERNAME:-}
+      BOT_DATA_DIR: /data
+    volumes:
+      - bot-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  bot-data:

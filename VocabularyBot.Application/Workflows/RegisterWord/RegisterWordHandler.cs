@@ -14,7 +14,7 @@ public sealed class RegisterWordHandler(IGenericRepository repository, ILoggerFa
   var user = await repository.Query<User>().FirstOrDefaultAsync(x => x.TelegramId == request.ActorId, ct);
   if (user?.StudentNumber is null) return Result.Failure("ابتدا شماره دانشجویی خود را ثبت کنید: /register");
   var v = request.Values;
-  if (v.Count < 6 || v.Take(5).Any(string.IsNullOrWhiteSpace)) return Result.Failure("کلمه انگلیسی، تلفظ، معنی فارسی و خانواده واژه اجباری هستند.");
+  if (v.Count < 6 || v.Take(4).Any(string.IsNullOrWhiteSpace)) return Result.Failure("کلمه انگلیسی، تلفظ و معنی فارسی اجباری هستند.");
   if (!Guid.TryParse(v[0], out var courseId) || !await repository.Query<CourseMembership>().AnyAsync(x => x.UserId == user.Id && x.CourseId == courseId, ct)) return Result.Failure("شناسه کلاس معتبر نیست یا شما عضو آن نیستید. /classes");
   var normalized = WordNormalizer.Normalize(v[1]);
   if (await repository.Query<VocabularyEntry>().AnyAsync(x => x.NormalizedWord == normalized, ct)) return Result.Failure("این واژه قبلاً ثبت شده است.");

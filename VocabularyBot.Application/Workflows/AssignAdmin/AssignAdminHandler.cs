@@ -19,7 +19,12 @@ public sealed class AssignAdminHandler(IGenericRepository repository, ILoggerFac
         var target = long.TryParse(identifier, out var telegramId)
             ? await repository.Query<User>().FirstOrDefaultAsync(x => x.TelegramId == telegramId, cancellationToken)
             : await repository.Query<User>().FirstOrDefaultAsync(x => x.Username != null && x.Username.ToLower() == identifier.ToLower(), cancellationToken);
-        if (target is null) return Result.Failure("کاربر پیدا نشد. ابتدا باید /start را ارسال کند؛ شناسه را بررسی کنید.");
+        if (target is null && long.TryParse(identifier, out telegramId) && telegramId > 0)
+        {
+            target = new User { TelegramId = telegramId };
+            repository.Create(target);
+        }
+        if (target is null) return Result.Failure("کاربر پیدا نشد. برای کاربر جدید شناسه عددی تلگرام را وارد کنید.");
         target.IsAdmin = true;
         await repository.SaveChangesAsync(cancellationToken);
         return Result.Success("نقش ادمین ثبت شد.");

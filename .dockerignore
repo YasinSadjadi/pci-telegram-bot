@@ -1,0 +1,13 @@
+**/bin
+**/obj
+.git
+.idea
+.vs
+.local
+.env
+.env.*
+**/appsettings.Development.json
+**/*.db
+**/*.db-shm
+**/*.db-wal
+VocabularyBot.Tests

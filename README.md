@@ -22,6 +22,46 @@ dotnet run --project VocabularyBot.Bot
 
 دیتابیس در `%LOCALAPPDATA%\VocabularyBot\vocabulary.db` ایجاد و migrationها هنگام اجرا اعمال می‌شوند. برای تعیین پوشه دیگر، متغیر `BOT_DATA_DIR` را تنظیم کنید. پیش از ارتقا برنامه را متوقف و از فایل دیتابیس پشتیبان تهیه کنید.
 
+## استقرار با systemd
+
+اگر سرور لینوکس از قبل runtime نسخه ۱۰ دات‌نت را دارد، فایل `deploy/vocabularybot.service` برای اجرای دائمی بات آماده است. خروجی `dotnet publish` در حالت Release را در `/opt/vocabularybot/releases/<release>` قرار دهید و symlink مسیر `/opt/vocabularybot/current` را به آن متصل کنید.
+
+سرویس از کاربر سیستمی `vocabularybot`، پوشه دیتابیس `/var/lib/vocabularybot` و فایل تنظیمات `/etc/vocabularybot/bot.env` استفاده می‌کند. فایل تنظیمات باید متعلق به root و با دسترسی `600` باشد و شامل `BOT_TOKEN` و `BOT_ADMIN_ID` یا `BOT_ADMIN_USERNAME` باشد. فایل سرویس را در `/etc/systemd/system/` نصب کنید و اجرا کنید:
+
+```sh
+sudo systemctl daemon-reload
+sudo systemctl enable --now vocabularybot
+sudo systemctl status vocabularybot --no-pager
+sudo journalctl -u vocabularybot -n 100 --no-pager
+```
+
+برای راه‌اندازی مجدد از `sudo systemctl restart vocabularybot` استفاده کنید. پیش از ارتقا سرویس را متوقف و از دیتابیس پشتیبان تهیه کنید. داده‌ها خارج از پوشه انتشار باقی می‌مانند.
+
+اگر Mihomo روی همان سرور با پورت `127.0.0.1:7890` اجرا می‌شود، فایل `deploy/proxy.conf` را در `/etc/systemd/system/vocabularybot.service.d/proxy.conf` قرار دهید و سپس `sudo systemctl daemon-reload` و `sudo systemctl restart vocabularybot` را اجرا کنید. HttpClient برنامه متغیرهای پروکسی سرویس را استفاده می‌کند. قانون عبور مستقیم IPهای ایران باید در Mihomo تنظیم شود؛ `NO_PROXY` بالا فقط آدرس‌های loopback را مستثنا می‌کند.
+
+## استقرار با Docker
+
+روی سرور لینوکسی با Docker Engine و افزونه Compose، فایل `.env.example` را به `.env` کپی کنید و توکن و شناسه یا نام کاربری ادمین اولیه را در آن قرار دهید. دسترسی فایل را با `chmod 600 .env` محدود کنید. سپس اجرا کنید:
+
+```sh
+docker compose up -d --build
+docker compose logs --tail=100 bot
+docker compose ps
+```
+
+بات در محیط Production و با کاربر غیر root اجرا می‌شود. نیازی به باز کردن پورت ورودی ندارد؛ اتصال خروجی به Telegram Bot API لازم است. فقط یک نمونه از بات با هر توکن اجرا کنید. فایل تنظیمات توسعه و دیتابیس محلی وارد image نمی‌شوند.
+
+دیتابیس در volume دائمی `bot-data` نگهداری می‌شود و با تعویض کانتینر باقی می‌ماند. برای ارتقا، ابتدا بات را متوقف و از دیتابیس پشتیبان تهیه کنید:
+
+```sh
+docker compose stop bot
+mkdir -p backups
+docker compose cp bot:/data/vocabulary.db "backups/vocabulary-$(date +%Y%m%d-%H%M%S).db"
+docker compose up -d --build
+```
+
+فرمان `docker compose down -v` داده‌ها را حذف می‌کند؛ برای توقف عادی از `docker compose stop` استفاده کنید. سرویس Docker باید هنگام روشن شدن سرور فعال شود تا سیاست `restart` بات را دوباره اجرا کند.
+
 ## استفاده
 
 منوی فارسی پایین گفتگو، کارهای اصلی را بدون تایپ دستور در دسترس قرار می‌دهد. گزینه‌های مدیریت فقط برای ادمین نمایش داده می‌شوند. داخل فرم، دکمه‌ها متناسب با مرحله تغییر می‌کنند: برگشت، لغو، رد کردن مترادف و ثبت نهایی.

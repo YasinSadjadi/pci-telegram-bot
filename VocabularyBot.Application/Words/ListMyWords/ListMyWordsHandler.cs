@@ -20,7 +20,7 @@ public sealed class ListMyWordsHandler(IGenericRepository repository) : IQueryHa
         return $"📚 واژه‌های من · {words.Count} واژه\n\n" + string.Join("\n\n────────────\n\n", words.Select(word => Format(word, byWord[word.Id])));
     }
 
-    private static string Format(VocabularyEntry word, IEnumerable<WordTranslation> translations)
+    internal static string Format(VocabularyEntry word, IEnumerable<WordTranslation> translations)
     {
         var lines = new List<string> { $"📌 {word.EnglishWord}", $"تلفظ: {word.Pronunciation}", $"معنی فارسی: {word.PersianMeaning}" };
         Add(lines, "خانواده واژه", word.Family);

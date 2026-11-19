@@ -17,6 +17,8 @@ public static class BotMenu
     public const string Help = "❔ راهنما";
     public const string Course = "🏫 ساخت کلاس";
     public const string Admin = "🔑 افزودن ادمین";
+    public const string Browse = "📋 مرور کلاس‌ها";
+    public const string SkipFamily = "⏭ بدون خانواده واژه";
     public const string Back = "↩️ مرحله قبل";
     public const string Cancel = "✖️ لغو";
     public const string Skip = "⏭ بدون مترادف";
@@ -26,8 +28,8 @@ public static class BotMenu
     public static string Command(string input) => input switch
     {
         Word => "/word", Words => "/words", Classes => "/classes", Join => "/join",
-        Register => "/register", Help => "/help", Course => "/course", Admin => "/admin",
-        Back => "/back", Cancel => "/cancel", Skip => "/skip", Done => "/done", Home => "/menu",
+        Register => "/register", Help => "/help", Course => "/course", Admin => "/admin", Browse => "/browse",
+        Back => "/back", Cancel => "/cancel", Skip => "/skip", SkipFamily => "/skip", Done => "/done", Home => "/menu",
         _ => input
     };
 

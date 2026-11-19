@@ -1,0 +1,29 @@
+[Unit]
+Description=Vocabulary Telegram Bot
+Wants=network-online.target
+After=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=vocabularybot
+Group=vocabularybot
+WorkingDirectory=/opt/vocabularybot/current
+ExecStart=/usr/bin/dotnet /opt/vocabularybot/current/VocabularyBot.Bot.dll
+EnvironmentFile=/etc/vocabularybot/bot.env
+Environment=DOTNET_ENVIRONMENT=Production
+Environment=BOT_DATA_DIR=/var/lib/vocabularybot
+StateDirectory=vocabularybot
+StateDirectoryMode=0700
+Restart=always
+RestartSec=5
+TimeoutStopSec=45
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+UMask=0077
+SyslogIdentifier=vocabularybot
+
+[Install]
+WantedBy=multi-user.target

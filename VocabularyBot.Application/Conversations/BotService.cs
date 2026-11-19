@@ -16,7 +16,7 @@ namespace VocabularyBot.Application.Conversations;
 public sealed class BotService(IGenericRepository repository, IMediator mediator, BotOptions options)
 {
     private static string Help(bool admin) => "📖 راهنمای واژه‌یار\n\n۱. شماره دانشجویی‌تان را ثبت کنید.\n۲. کلاس خود را انتخاب کنید.\n۳. واژه‌ها را با فرم مرحله‌ای ثبت کنید.\n\nمی‌توانید از دکمه‌های پایین یا این دستورها استفاده کنید:\n/word — ثبت واژه\n/words — واژه‌های من\n/classes — کلاس‌های من\n/join — عضویت در کلاس\n/register — تغییر شماره دانشجویی\n\nداخل فرم:\n/back — اصلاح مرحله قبل\n/cancel — لغو فرم\n/menu — خروج از فرم و منوی اصلی" +
-        (admin ? "\n\n🔑 مدیریت\n/course — ساخت کلاس\n/admin — افزودن ادمین" : "");
+        (admin ? "\n\n🔑 مدیریت\n/course — ساخت کلاس\n/admin — افزودن ادمین\n/browse — مرور کلاس‌ها و واژه‌ها" : "");
     private static readonly string[] CoursePrompts =
     [
         "🏫 ساخت کلاس · مرحله ۱ از ۳\n\nنام دانشگاه را وارد کنید:",
@@ -29,7 +29,7 @@ public sealed class BotService(IGenericRepository repository, IMediator mediator
         "✍️ ثبت واژه · مرحله ۱ از ۶\n\nکلمه یا عبارت انگلیسی را وارد کنید.\nمثال: example",
         "✍️ ثبت واژه · مرحله ۲ از ۶\n\nتلفظ را وارد کنید.\nمثال: /ɪɡˈzɑːmpəl/",
         "✍️ ثبت واژه · مرحله ۳ از ۶\n\nمعنی فارسی را وارد کنید.\nمثال: نمونه، مثال",
-        "✍️ ثبت واژه · مرحله ۴ از ۶\n\nخانواده واژه را وارد کنید.\nمثال: exemplify, exemplary",
+        "✍️ ثبت واژه · مرحله ۴ از ۶\n\nخانواده واژه را وارد کنید.\nمثال: exemplify, exemplary\n\nاختیاری است؛ /skip یا دکمه «بدون خانواده واژه» را بفرستید.",
         "✍️ ثبت واژه · مرحله ۵ از ۶\n\nمترادف‌ها را وارد کنید.\nمثال: instance, sample\n\nاختیاری است؛ دکمه «بدون مترادف» یا /skip را بفرستید.",
         $"✍️ ثبت واژه · مرحله ۶ از ۶\n\nترجمه به زبان دیگر (اختیاری)\nهر زبان را در یک خط بنویسید؛ مثلاً:\nآلمانی: Beispiel\nفرانسوی: exemple\n\nزبان‌های پشتیبانی‌شده: {TranslationInput.SupportedLanguages}\n\nبرای ذخیره، دکمه «ثبت واژه» یا /done را بفرستید."
 
@@ -39,6 +39,32 @@ public sealed class BotService(IGenericRepository repository, IMediator mediator
     {
         input = BotMenu.Command(input.Trim());
         var user = await repository.Query<User>().FirstOrDefaultAsync(x => x.TelegramId == id);
+        if (input.StartsWith("browse:"))
+        {
+            var browseState = user is null ? null : await repository.Query<Conversation>().FirstOrDefaultAsync(x => x.UserId == user.Id);
+            var parts = input.Split(':');
+            if (user?.IsAdmin != true || browseState?.Flow != "browse" || parts.Length != 4 || parts[1] != SelectionKey(browseState)) return "این انتخاب دیگر فعال نیست. /browse";
+            if (parts[2] == "page") return browseState.Step == 0 ? "🏫 کلاس مورد نظر را انتخاب کنید." : "👥 شماره دانشجویی یا همه واژه‌های کلاس را انتخاب کنید.";
+            if (parts[2] == "classes") { browseState.Step = 0; browseState.Data = "[]"; await repository.SaveChangesAsync(); return "🏫 کلاس مورد نظر را انتخاب کنید."; }
+            if (parts[2] == "course" && browseState.Step == 0 && Guid.TryParse(parts[3], out var courseId) && await repository.Query<Course>().AnyAsync(c => c.Id == courseId))
+            { browseState.Step = 1; browseState.Data = JsonSerializer.Serialize(new[] { courseId.ToString() }); await repository.SaveChangesAsync(); return "👥 شماره دانشجویی یا همه واژه‌های کلاس را انتخاب کنید."; }
+            if (browseState.Step == 1 && (parts[2] == "student" || parts[2] == "all"))
+            {
+                var data = JsonSerializer.Deserialize<List<string>>(browseState.Data) ?? [];
+                if (data.Count != 1 || !Guid.TryParse(data[0], out var selectedId)) return "انتخاب کلاس معتبر نیست.";
+                Guid studentId = default;
+                if (parts[2] == "student" && (!Guid.TryParse(parts[3], out studentId) || !await repository.Query<CourseMembership>().AnyAsync(m => m.CourseId == selectedId && m.UserId == studentId))) return "دانشجوی این کلاس پیدا نشد.";
+                var query = repository.Query<VocabularyEntry>(false).Where(w => w.CourseId == selectedId);
+                if (parts[2] == "student") query = query.Where(w => w.UserId == studentId);
+                var words = await query.OrderBy(w => w.EnglishWord).ToListAsync();
+                if (words.Count == 0) return "هنوز واژه‌ای برای این انتخاب ثبت نشده است.";
+                var ids = words.Select(w => w.Id).ToArray();
+                var translations = await repository.Query<WordTranslation>(false).Where(t => ids.Contains(t.VocabularyEntryId)).OrderBy(t => t.Type).ToListAsync();
+                var lookup = translations.ToLookup(t => t.VocabularyEntryId);
+                return $"📚 واژه‌ها · {words.Count} واژه\n\n" + string.Join("\n\n────────────\n\n", words.Select(w => ListMyWordsHandler.Format(w, lookup[w.Id])));
+            }
+            return "این انتخاب معتبر نیست. /browse";
+        }
         if (input.StartsWith("class:") || input.StartsWith("page:"))
         {
             var current = user is null ? null : await repository.Query<Conversation>().FirstOrDefaultAsync(x => x.UserId == user.Id);
@@ -60,7 +86,7 @@ public sealed class BotService(IGenericRepository repository, IMediator mediator
                  !await repository.Query<User>().AnyAsync(x => x.IsAdmin)))
                 user.IsAdmin = true;
             await repository.SaveChangesAsync();
-            if (user.StudentNumber is null) { await StartFlow(user.Id, "register"); return "👋 به واژه‌یار خوش آمدید\n\nواژه‌های کلاس را اینجا ثبت و مرور کنید.\nبرای شروع، شماره دانشجویی خود را وارد کنید.\nارقام فارسی و انگلیسی پذیرفته می‌شوند."; }
+            if (user.StudentNumber is null && !user.IsAdmin) { await StartFlow(user.Id, "register"); return "👋 به واژه‌یار خوش آمدید\n\nواژه‌های کلاس را اینجا ثبت و مرور کنید.\nبرای شروع، شماره دانشجویی خود را وارد کنید.\nارقام فارسی و انگلیسی پذیرفته می‌شوند."; }
             if (!await repository.Query<CourseMembership>().AnyAsync(m => m.UserId == user.Id) && !user.IsAdmin)
             {
                 await StartFlow(user.Id, "select_class");
@@ -82,11 +108,17 @@ public sealed class BotService(IGenericRepository repository, IMediator mediator
             await StartFlow(user.Id, "select_class");
             return await ClassSelectionPrompt();
         }
+        if (input == "/browse")
+        {
+            if (!user.IsAdmin) return "این دستور مخصوص ادمین است.";
+            await StartFlow(user.Id, "browse");
+            return "🏫 کلاس مورد نظر را انتخاب کنید.";
+        }
         if (input == "/admin")
         {
             if (!user.IsAdmin) return "این دستور مخصوص ادمین است. برای دسترسی با ادمین هماهنگ کنید.";
             await StartFlow(user.Id, "admin");
-            return "شناسه عددی تلگرام یا نام کاربری فرد ثبت‌نام‌شده را وارد کنید:";
+            return "شناسه عددی تلگرام را وارد کنید؛ حتی اگر فرد ربات را شروع نکرده باشد. برای کاربران ثبت‌نام‌شده نام کاربری نیز پذیرفته می‌شود:";
         }
         if (input == "/course")
         {
@@ -182,7 +214,7 @@ public sealed class BotService(IGenericRepository repository, IMediator mediator
             return "✓ ترجمه به فرم اضافه شد.\n\n" + string.Join("\n", values.Skip(6)) + "\n\nبرای اصلاح، همان زبان را دوباره بفرستید.\nبرای ذخیره نهایی، «ثبت واژه» یا /done را انتخاب کنید.";
         }
         if (input == "/done") return "ابتدا فیلدهای اجباری و مرحله مترادف را تکمیل کنید.";
-        if (input == "/skip" && values.Count < 5) return "این فیلد اجباری است. لطفاً مقدار آن را وارد کنید.";
+        if (input == "/skip" && values.Count < 4) return "این فیلد اجباری است. لطفاً مقدار آن را وارد کنید.";
         if (input.Length == 0 || input.Length > 2000) return "متن واردشده باید بین ۱ تا ۲۰۰۰ نویسه باشد. لطفاً دوباره وارد کنید.";
         if (values.Count == 0)
         {
@@ -216,7 +248,7 @@ public sealed class BotService(IGenericRepository repository, IMediator mediator
         (user.StudentNumber is null ? "برای شروع، «شماره دانشجویی» را انتخاب کنید." : "برای ثبت واژه جدید یا مرور واژه‌ها، از منوی پایین انتخاب کنید.");
 
     private static string SelectionKey(Conversation state) =>
-        (state.Flow == "word" ? "w" : "j") + state.Id.ToString("N")[..8];
+        (state.Flow == "word" ? "w" : state.Flow == "browse" ? "b" : "j") + state.Id.ToString("N")[..8];
 
     private async Task<string> Back(User user)
     {
@@ -252,6 +284,34 @@ public sealed class BotService(IGenericRepository repository, IMediator mediator
         var state = await repository.Query<Conversation>(false).FirstOrDefaultAsync(x => x.UserId == user.Id);
         if (state is not null)
         {
+            if (state.Flow == "browse" && user.IsAdmin)
+            {
+                const int pageSize = 8;
+                var parts = input.Split(':');
+                var page = parts.Length == 4 && parts[0] == "browse" && parts[1] == SelectionKey(state) && parts[2] == "page" && int.TryParse(parts[3], out var requested) ? Math.Max(0, requested) : 0;
+                var rows = new List<IReadOnlyList<BotButton>>();
+                int count;
+                if (state.Step == 0)
+                {
+                    var query = repository.Query<Course>(false).OrderBy(c => c.University).ThenBy(c => c.Year).ThenBy(c => c.Term).ThenBy(c => c.Id);
+                    count = await query.CountAsync(); page = Math.Min(page, Math.Max(0, (count - 1) / pageSize));
+                    foreach (var course in await query.Skip(page * pageSize).Take(pageSize).ToListAsync()) rows.Add([new BotButton($"{course.University} · {course.Year} · ترم {course.Term}", $"browse:{SelectionKey(state)}:course:{course.Id:N}")]);
+                }
+                else
+                {
+                    var data = JsonSerializer.Deserialize<List<string>>(state.Data) ?? [];
+                    var courseId = Guid.Parse(data[0]);
+                    var query = repository.Query<User>(false).Where(u => u.StudentNumber != null && repository.Query<CourseMembership>(false).Any(m => m.CourseId == courseId && m.UserId == u.Id)).OrderBy(u => u.StudentNumber).ThenBy(u => u.Id);
+                    count = await query.CountAsync(); page = Math.Min(page, Math.Max(0, (count - 1) / pageSize));
+                    foreach (var student in await query.Skip(page * pageSize).Take(pageSize).ToListAsync()) rows.Add([new BotButton(student.StudentNumber!, $"browse:{SelectionKey(state)}:student:{student.Id:N}")]);
+                }
+                var nav = new List<BotButton>();
+                if (page > 0) nav.Add(new("◀ صفحه قبل", $"browse:{SelectionKey(state)}:page:{page - 1}"));
+                if ((page + 1) * pageSize < count) nav.Add(new("صفحه بعد ▶", $"browse:{SelectionKey(state)}:page:{page + 1}"));
+                if (nav.Count > 0) rows.Add(nav);
+                if (state.Step == 1) { rows.Add([new BotButton("📚 همه واژه‌های کلاس", $"browse:{SelectionKey(state)}:all:0")]); rows.Add([new BotButton("↩️ فهرست کلاس‌ها", $"browse:{SelectionKey(state)}:classes:0")]); }
+                return new BotKeyboard(rows, Inline: true);
+            }
             if (state.Flow == "select_class" || state.Flow == "word" && state.Step == 0)
             {
                 var query = repository.Query<Course>(false);
@@ -277,6 +337,7 @@ public sealed class BotService(IGenericRepository repository, IMediator mediator
                 return new BotKeyboard(rows, Inline: true);
             }
             var controls = new List<string[]>();
+            if (state.Flow == "word" && state.Step == 4) controls.Add([BotMenu.SkipFamily]);
             if (state.Flow == "word" && state.Step == 5) controls.Add([BotMenu.Skip]);
             if (state.Flow == "word" && state.Step >= 6) controls.Add([BotMenu.Done]);
             var canGoBack = state.Flow == "course" && state.Step > 0 ||
@@ -294,7 +355,7 @@ public sealed class BotService(IGenericRepository repository, IMediator mediator
             menu.Add([BotMenu.Classes, BotMenu.Join]);
         }
         menu.Add([BotMenu.Register, BotMenu.Help]);
-        if (user.IsAdmin) menu.Add([BotMenu.Course, BotMenu.Admin]);
+        if (user.IsAdmin) { menu.Add([BotMenu.Course, BotMenu.Admin]); menu.Add([BotMenu.Browse]); }
         return BotMenu.Reply(menu.ToArray());
     }
 
