@@ -19,6 +19,7 @@
     </ItemGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\VocabularyBot.Bot\VocabularyBot.Bot.csproj"/>
         <ProjectReference Include="..\VocabularyBot.Infrastructure\VocabularyBot.Infrastructure.csproj"/>
         <ProjectReference Include="..\VocabularyBot.Application\VocabularyBot.Application.csproj"/>
     </ItemGroup>

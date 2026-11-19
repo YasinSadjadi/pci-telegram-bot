@@ -39,7 +39,7 @@ public sealed class PollingWorker(IServiceScopeFactory scopes, TelegramClient te
                             if (message.GetProperty("chat").GetProperty("id").GetInt64() == id)
                             {
                                 var input = data.GetString() ?? "";
-                                if (input.StartsWith("class:") || input.StartsWith("page:"))
+                                if (IsSupportedCallback(input))
                                     await Respond(id,
                                         actor.TryGetProperty("username", out var username) ? username.GetString() : null,
                                         actor.TryGetProperty("first_name", out var name) ? name.GetString() ?? "" : "",
@@ -61,6 +61,9 @@ public sealed class PollingWorker(IServiceScopeFactory scopes, TelegramClient te
                 await Task.Delay(TimeSpan.FromSeconds(5), ct);
             }
     }
+
+    public static bool IsSupportedCallback(string input) =>
+        input.StartsWith("class:") || input.StartsWith("page:") || input.StartsWith("browse:");
 
     private async Task Respond(long id, string? username, string name, string input, CancellationToken ct)
     {

@@ -43,15 +43,15 @@ public sealed class BotService(IGenericRepository repository, IMediator mediator
         {
             var browseState = user is null ? null : await repository.Query<Conversation>().FirstOrDefaultAsync(x => x.UserId == user.Id);
             var parts = input.Split(':');
-            if (user?.IsAdmin != true || browseState?.Flow != "browse" || parts.Length != 4 || parts[1] != SelectionKey(browseState)) return "این انتخاب دیگر فعال نیست. /browse";
+            if (user is null || browseState?.Flow != "browse" || parts.Length != 4 || parts[1] != SelectionKey(browseState)) return "این انتخاب دیگر فعال نیست. /browse";
             if (parts[2] == "page") return browseState.Step == 0 ? "🏫 کلاس مورد نظر را انتخاب کنید." : "👥 شماره دانشجویی یا همه واژه‌های کلاس را انتخاب کنید.";
             if (parts[2] == "classes") { browseState.Step = 0; browseState.Data = "[]"; await repository.SaveChangesAsync(); return "🏫 کلاس مورد نظر را انتخاب کنید."; }
-            if (parts[2] == "course" && browseState.Step == 0 && Guid.TryParse(parts[3], out var courseId) && await repository.Query<Course>().AnyAsync(c => c.Id == courseId))
+            if (parts[2] == "course" && browseState.Step == 0 && Guid.TryParse(parts[3], out var courseId) && await CanBrowseCourse(user, courseId))
             { browseState.Step = 1; browseState.Data = JsonSerializer.Serialize(new[] { courseId.ToString() }); await repository.SaveChangesAsync(); return "👥 شماره دانشجویی یا همه واژه‌های کلاس را انتخاب کنید."; }
             if (browseState.Step == 1 && (parts[2] == "student" || parts[2] == "all"))
             {
                 var data = JsonSerializer.Deserialize<List<string>>(browseState.Data) ?? [];
-                if (data.Count != 1 || !Guid.TryParse(data[0], out var selectedId)) return "انتخاب کلاس معتبر نیست.";
+                if (data.Count != 1 || !Guid.TryParse(data[0], out var selectedId) || !await CanBrowseCourse(user, selectedId)) return "انتخاب کلاس معتبر نیست.";
                 Guid studentId = default;
                 if (parts[2] == "student" && (!Guid.TryParse(parts[3], out studentId) || !await repository.Query<CourseMembership>().AnyAsync(m => m.CourseId == selectedId && m.UserId == studentId))) return "دانشجوی این کلاس پیدا نشد.";
                 var query = repository.Query<VocabularyEntry>(false).Where(w => w.CourseId == selectedId);
@@ -101,7 +101,12 @@ public sealed class BotService(IGenericRepository repository, IMediator mediator
         if (input == "/help") return Help(user.IsAdmin);
         if (input == "/back") return await Back(user);
         if (input == "/register") { await StartFlow(user.Id, "register"); return "👤 شماره دانشجویی\n\nشماره دانشجویی خود را وارد کنید.\nارقام فارسی و انگلیسی پذیرفته می‌شوند."; }
-        if (input == "/classes") return await mediator.Send(new ListCoursesQuery(id));
+        if (input == "/classes")
+        {
+            var description = await mediator.Send(new ListCoursesQuery(id));
+            await StartFlow(user.Id, "browse");
+            return description + "\n\nبرای دیدن دانشجویان و واژه‌ها، یک کلاس را انتخاب کنید.";
+        }
         if (input == "/join")
         {
             if (user.StudentNumber is null) return "ابتدا شماره دانشجویی خود را با /register ثبت کنید.";
@@ -238,6 +243,10 @@ public sealed class BotService(IGenericRepository repository, IMediator mediator
         return "برای پایان ثبت ترجمه‌ها /done را بفرستید.";
     }
 
+    private async Task<bool> CanBrowseCourse(User user, Guid courseId) =>
+        await repository.Query<Course>(false).AnyAsync(c => c.Id == courseId) &&
+        (user.IsAdmin || await repository.Query<CourseMembership>(false).AnyAsync(m => m.CourseId == courseId && m.UserId == user.Id));
+
     private async Task<string> ClassSelectionPrompt()
     {
         if (!await repository.Query<Course>(false).AnyAsync()) return "هنوز کلاسی ایجاد نشده است. پس از ایجاد کلاس توسط ادمین، /join را بفرستید.";
@@ -284,7 +293,7 @@ public sealed class BotService(IGenericRepository repository, IMediator mediator
         var state = await repository.Query<Conversation>(false).FirstOrDefaultAsync(x => x.UserId == user.Id);
         if (state is not null)
         {
-            if (state.Flow == "browse" && user.IsAdmin)
+            if (state.Flow == "browse")
             {
                 const int pageSize = 8;
                 var parts = input.Split(':');
@@ -293,7 +302,9 @@ public sealed class BotService(IGenericRepository repository, IMediator mediator
                 int count;
                 if (state.Step == 0)
                 {
-                    var query = repository.Query<Course>(false).OrderBy(c => c.University).ThenBy(c => c.Year).ThenBy(c => c.Term).ThenBy(c => c.Id);
+                    var courses = repository.Query<Course>(false);
+                    if (!user.IsAdmin) courses = courses.Where(c => repository.Query<CourseMembership>(false).Any(m => m.CourseId == c.Id && m.UserId == user.Id));
+                    var query = courses.OrderBy(c => c.University).ThenBy(c => c.Year).ThenBy(c => c.Term).ThenBy(c => c.Id);
                     count = await query.CountAsync(); page = Math.Min(page, Math.Max(0, (count - 1) / pageSize));
                     foreach (var course in await query.Skip(page * pageSize).Take(pageSize).ToListAsync()) rows.Add([new BotButton($"{course.University} · {course.Year} · ترم {course.Term}", $"browse:{SelectionKey(state)}:course:{course.Id:N}")]);
                 }
@@ -310,6 +321,7 @@ public sealed class BotService(IGenericRepository repository, IMediator mediator
                 if ((page + 1) * pageSize < count) nav.Add(new("صفحه بعد ▶", $"browse:{SelectionKey(state)}:page:{page + 1}"));
                 if (nav.Count > 0) rows.Add(nav);
                 if (state.Step == 1) { rows.Add([new BotButton("📚 همه واژه‌های کلاس", $"browse:{SelectionKey(state)}:all:0")]); rows.Add([new BotButton("↩️ فهرست کلاس‌ها", $"browse:{SelectionKey(state)}:classes:0")]); }
+                if (rows.Count == 0) return BotMenu.Reply([BotMenu.Join, BotMenu.Home]);
                 return new BotKeyboard(rows, Inline: true);
             }
             if (state.Flow == "select_class" || state.Flow == "word" && state.Step == 0)
@@ -354,6 +366,7 @@ public sealed class BotService(IGenericRepository repository, IMediator mediator
             menu.Add([BotMenu.Word, BotMenu.Words]);
             menu.Add([BotMenu.Classes, BotMenu.Join]);
         }
+        if (user.StudentNumber is null && user.IsAdmin) menu.Add([BotMenu.Classes]);
         menu.Add([BotMenu.Register, BotMenu.Help]);
         if (user.IsAdmin) { menu.Add([BotMenu.Course, BotMenu.Admin]); menu.Add([BotMenu.Browse]); }
         return BotMenu.Reply(menu.ToArray());

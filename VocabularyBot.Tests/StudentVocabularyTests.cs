@@ -466,4 +466,36 @@ public sealed class StudentVocabularyTests
         Assert.All(students.Keyboard.Rows.SelectMany(r => r), b => Assert.InRange(System.Text.Encoding.UTF8.GetByteCount(b.CallbackData!), 1, 64));
     }
 
+    [Fact]
+    public async Task My_classes_are_selectable_and_limited_to_memberships()
+    {
+        await using var env = new TestEnvironment(); await env.Initialize();
+        await env.Send(10, "/start"); await env.Send(10, "100");
+        await env.Send(11, "/start"); await env.Send(11, "101");
+        var memberCourse = await JoinClass(env, 10, 11);
+        var otherCourse = await JoinClass(env, 11);
+        var owner = await env.Db.Users.SingleAsync(u => u.TelegramId == 11);
+        env.Db.VocabularyEntries.Add(new VocabularyEntry { CourseId = memberCourse.Id, UserId = owner.Id, EnglishWord = "alpha", NormalizedWord = "ALPHA", Pronunciation = "a", PersianMeaning = "الف" });
+        await env.Db.SaveChangesAsync();
+        var classes = await env.Reply(10, BotMenu.Classes);
+        Assert.True(classes.Keyboard!.Inline);
+        var buttons = classes.Keyboard.Rows.SelectMany(r => r).ToArray();
+        var courseButton = buttons.Single(b => b.CallbackData!.EndsWith(memberCourse.Id.ToString("N")));
+        Assert.DoesNotContain(buttons, b => b.CallbackData!.EndsWith(otherCourse.Id.ToString("N")));
+        Assert.Contains("معتبر نیست", await env.Send(10, courseButton.CallbackData!.Replace(memberCourse.Id.ToString("N"), otherCourse.Id.ToString("N"))));
+        var students = await env.Reply(10, courseButton.CallbackData!);
+        var studentButton = students.Keyboard!.Rows.SelectMany(r => r).Single(b => b.Text == "101");
+        Assert.Contains("alpha", await env.Send(10, studentButton.CallbackData!));
+        var all = students.Keyboard.Rows.SelectMany(r => r).Single(b => b.Text.Contains("همه واژه"));
+        Assert.Contains("alpha", await env.Send(10, all.CallbackData!));
+    }
+
+    [Fact]
+    public void Polling_accepts_class_browsing_callbacks()
+    {
+        Assert.True(PollingWorker.IsSupportedCallback("browse:b12345678:course:00000000000000000000000000000000"));
+        Assert.True(PollingWorker.IsSupportedCallback("class:j12345678:cancel"));
+        Assert.False(PollingWorker.IsSupportedCallback("unknown:value"));
+    }
+
 }
