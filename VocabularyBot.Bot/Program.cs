@@ -41,6 +41,7 @@ var adminUsername = Environment.GetEnvironmentVariable("BOT_ADMIN_USERNAME") ??
 builder.Services.AddApplication(long.TryParse(configuredAdmin, out var adminId) ? adminId : null, adminUsername);
 builder.Services.AddSingleton(new TelegramClient(token));
 builder.Services.AddHostedService<PollingWorker>();
+builder.Services.AddHostedService<WeeklyBackupWorker>();
 using var host = builder.Build();
 using (var scope = host.Services.CreateScope())
 {

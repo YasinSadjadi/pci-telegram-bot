@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using VocabularyBot.Application.Conversations;
@@ -26,6 +28,22 @@ public sealed class TelegramClient(string token)
                 payload["reply_markup"] = Markup(keyboard);
             await Call("sendMessage", payload, ct);
         }
+    }
+
+    public async Task SendDocument(long id, string path, string fileName, CancellationToken ct)
+    {
+        using var form = new MultipartFormDataContent();
+        form.Add(new StringContent(id.ToString(CultureInfo.InvariantCulture)), "chat_id");
+        form.Add(new StringContent("پشتیبان هفتگی پایگاه داده"), "caption");
+        var document = new StreamContent(File.OpenRead(path));
+        document.Headers.ContentType = new MediaTypeHeaderValue("application/zip");
+        form.Add(document, "document", fileName);
+
+        using var response = await http.PostAsync($"https://api.telegram.org/bot{token}/sendDocument", form, ct);
+        response.EnsureSuccessStatusCode();
+        using var result = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
+        if (!result.RootElement.GetProperty("ok").GetBoolean())
+            throw new InvalidOperationException("Telegram document upload failed.");
     }
 
     private static object Markup(BotKeyboard keyboard)
